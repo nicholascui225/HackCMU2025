@@ -1,0 +1,250 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Route 66 Design System - American Desert Highway Theme */
+
+@layer base {
+  :root {
+    /* Desert Highway Colors */
+    --background: 32 25% 96%;
+    --foreground: 25 35% 15%;
+
+    --card: 30 20% 98%;
+    --card-foreground: 25 35% 15%;
+
+    --popover: 30 20% 98%;
+    --popover-foreground: 25 35% 15%;
+
+    /* Route 66 Color Palette */
+    --primary: 14 100% 55%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 25 35% 25%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 30 15% 88%;
+    --muted-foreground: 25 25% 45%;
+
+    --accent: 39 85% 60%;
+    --accent-foreground: 25 35% 15%;
+
+    --destructive: 0 85% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 30 20% 85%;
+    --input: 30 20% 92%;
+    --ring: 14 100% 55%;
+
+    --radius: 0.75rem;
+
+    /* Custom Route 66 Colors */
+    --route66-red: 14 100% 55%;
+    --route66-red-dark: 14 85% 45%;
+    --route66-orange: 25 95% 55%;
+    --route66-orange-dark: 25 85% 45%;
+    --route66-yellow: 39 85% 60%;
+    --route66-yellow-dark: 39 75% 50%;
+    --route66-brown: 25 35% 25%;
+    --route66-brown-light: 25 25% 35%;
+    --route66-sand: 32 25% 85%;
+    --route66-desert: 32 25% 96%;
+
+    /* Desert Gradients */
+    --gradient-sunset: linear-gradient(135deg, hsl(var(--route66-orange)), hsl(var(--route66-red)));
+    --gradient-desert: linear-gradient(180deg, hsl(var(--route66-sand)), hsl(var(--route66-desert)));
+    --gradient-road: linear-gradient(90deg, hsl(var(--route66-brown)), hsl(var(--route66-brown-light)));
+
+    /* Vintage Shadows */
+    --shadow-vintage: 0 4px 8px hsl(var(--route66-brown) / 0.2);
+    --shadow-warm: 0 8px 24px hsl(var(--route66-orange) / 0.15);
+    --shadow-deep: 0 12px 32px hsl(var(--route66-brown) / 0.25);
+
+    /* Smooth Transitions */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+    background: linear-gradient(135deg, hsl(var(--route66-desert)), hsl(var(--route66-sand)));
+  }
+}
+
+@layer components {
+  /* Highway Card Effect */
+  .highway-card {
+    @apply relative bg-card border border-border rounded-lg;
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    box-shadow: var(--shadow-vintage);
+    transition: var(--transition-smooth);
+  }
+
+  .highway-card:hover {
+    box-shadow: var(--shadow-warm);
+    transform: translateY(-2px);
+  }
+
+  /* Vintage Text Styles */
+  .text-vintage {
+    text-shadow: 1px 1px 2px hsl(var(--route66-brown) / 0.3);
+  }
+
+  .text-desert {
+    color: hsl(var(--route66-brown));
+  }
+
+  .text-sunset {
+    background: var(--gradient-sunset);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Road Visualization */
+  .road-container {
+    @apply relative overflow-hidden;
+    background: var(--gradient-desert);
+  }
+
+  .road-path {
+    @apply relative;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      hsl(var(--route66-brown) / 0.2) 45%,
+      hsl(var(--route66-brown)) 50%,
+      hsl(var(--route66-brown) / 0.2) 55%,
+      transparent 100%
+    );
+  }
+
+  /* Route 66 Button Variants */
+  .btn-route66 {
+    @apply relative overflow-hidden rounded-lg;
+    background: hsl(var(--route66-red));
+    color: white;
+    border: 2px solid hsl(var(--route66-red-dark));
+    box-shadow: var(--shadow-vintage);
+    transition: var(--transition-smooth);
+  }
+
+  .btn-route66:hover {
+    background: hsl(var(--route66-red-dark));
+    box-shadow: var(--shadow-warm);
+    transform: translateY(-1px);
+  }
+
+  .btn-desert {
+    @apply relative overflow-hidden rounded-lg;
+    background: hsl(var(--route66-orange));
+    color: white;
+    border: 2px solid hsl(var(--route66-orange-dark));
+    box-shadow: var(--shadow-vintage);
+    transition: var(--transition-smooth);
+  }
+
+  .btn-desert:hover {
+    background: hsl(var(--route66-orange-dark));
+    box-shadow: var(--shadow-warm);
+    transform: translateY(-1px);
+  }
+
+  /* Vintage Fonts */
+  .font-highway {
+    font-family: 'Georgia', serif;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
+  .font-americana {
+    font-family: 'Times New Roman', serif;
+    letter-spacing: 0.01em;
+  }
+
+  /* Card Enhancements */
+  .vintage-card {
+    @apply highway-card p-6;
+    background: var(--gradient-desert);
+  }
+
+  /* Form Elements */
+  .highway-input {
+    @apply bg-input border border-border rounded-lg;
+    background: hsl(var(--input));
+    border-color: hsl(var(--border));
+    box-shadow: inset 0 2px 4px hsl(var(--route66-brown) / 0.1);
+    transition: var(--transition-smooth);
+  }
+
+  .highway-input:focus {
+    border-color: hsl(var(--route66-red));
+    box-shadow: 
+      inset 0 2px 4px hsl(var(--route66-brown) / 0.1),
+      0 0 0 2px hsl(var(--route66-red) / 0.2);
+  }
+}
