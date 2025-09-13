@@ -6,7 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { BarChart3, CheckCircle, Clock, Calendar, Target, MapPin, Save } from "lucide-react";
+import { BarChart3, CheckCircle, Clock, Calendar, Target, MapPin, Save, Circle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { listTodayTasks, toggleTask as toggleTaskSrv, updateTaskNotes as updateTaskNotesSrv, type Task } from "@/services/goals";
 
@@ -186,16 +186,20 @@ const ProgressReport = () => {
                 tasks.map((task) => (
                   <div key={task.id} className="border border-retro-green/30 rounded p-4 bg-retro-crt-surface/30">
                     <div className="flex items-start gap-4">
-                      <div className="flex items-center pt-1">
-                        <Checkbox
-                          checked={task.completed}
-                          onCheckedChange={() => toggleTaskCompletion(task.id)}
-                          className="border-retro-green data-[state=checked]:bg-retro-green"
-                        />
-                      </div>
-                      
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
+                          <button
+                            type="button"
+                            onClick={() => toggleTaskCompletion(task.id)}
+                            className="h-5 w-5 inline-flex items-center justify-center"
+                            aria-label={task.completed ? 'Mark incomplete' : 'Mark complete'}
+                          >
+                            {task.completed ? (
+                              <CheckCircle className="h-4 w-4 text-retro-green" />
+                            ) : (
+                              <Circle className="h-4 w-4 text-retro-amber" />
+                            )}
+                          </button>
                           <div className="text-retro-amber">
                             {getTypeIcon(task.type)}
                           </div>

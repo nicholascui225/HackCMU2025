@@ -1,57 +1,40 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/ui/navbar";
 import { RoadVisualization } from "@/components/retro/road-visualization";
 import { Link } from "react-router-dom";
 import { PlusCircle, Target, Calendar, BarChart3 } from "lucide-react";
-
-// Mock data for demonstration
-const mockTasks = [
-  {
-    id: "1",
-    title: "Morning standup meeting",
-    time: "09:00",
-    completed: true,
-    type: "event" as const,
-  },
-  {
-    id: "2", 
-    title: "Complete project proposal",
-    time: "10:30",
-    completed: false,
-    type: "task" as const,
-  },
-  {
-    id: "3",
-    title: "Lunch with team",
-    time: "12:00",
-    completed: false,
-    type: "event" as const,
-  },
-  {
-    id: "4",
-    title: "Code review session",
-    time: "14:00",
-    completed: false,
-    type: "task" as const,
-  },
-  {
-    id: "5",
-    title: "Weekly goal check-in",
-    time: "16:00",
-    completed: false,
-    type: "goal" as const,
-  },
-];
+import { listTodayTasks, type Task as DbTask } from "@/services/goals";
+import { useToast } from "@/hooks/use-toast";
 
 const Dashboard = () => {
-  const [tasks] = useState(mockTasks);
+  const { toast } = useToast();
+  const [tasks, setTasks] = useState<Array<{ id: string; title: string; time: string; completed: boolean; type: 'event' | 'task' | 'goal'; }>>([]);
   const currentDate = new Date().toLocaleDateString('en-US', { 
     weekday: 'long', 
     year: 'numeric', 
     month: 'long', 
     day: 'numeric' 
   });
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const data: DbTask[] = await listTodayTasks();
+        const mapped = data.map((t) => ({
+          id: t.id,
+          title: t.title,
+          time: (t.start_time ?? '').slice(0,5),
+          completed: t.completed,
+          type: t.type,
+        }));
+        setTasks(mapped);
+      } catch (err: any) {
+        console.error(err);
+        toast({ title: 'Error', description: err?.message || 'Failed to load today\'s tasks', variant: 'destructive' });
+      }
+    })();
+  }, [toast]);
 
   const completedTasks = tasks.filter(task => task.completed).length;
   const totalTasks = tasks.length;
@@ -118,7 +101,7 @@ const Dashboard = () => {
         </div>
 
         {/* Road Visualization */}
-        <RoadVisualization tasks={tasks} currentTime="10:15" />
+        <RoadVisualization tasks={tasks} currentTime={new Date().toTimeString().slice(0,5)} />
 
         {/* Quick Actions */}
         <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">

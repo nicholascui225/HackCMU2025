@@ -121,4 +121,31 @@ export async function updateTaskNotes(taskId: string, notes: string) {
   if (error) throw error;
 }
 
+export async function addTask(params: {
+  goal_id: string;
+  title: string;
+  type: "event" | "task" | "goal";
+  date: string; // YYYY-MM-DD
+  start_time?: string; // HH:MM
+  end_time?: string; // HH:MM
+  notes?: string;
+}) {
+  const { goal_id, title, type, date, start_time, end_time, notes } = params;
+  const { data, error } = await supabase
+    .from("tasks")
+    .insert({
+      goal_id,
+      title,
+      type,
+      date,
+      start_time: start_time ? `${start_time}:00` : null,
+      end_time: end_time ? `${end_time}:00` : null,
+      notes: notes ?? null,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data as Task;
+}
+
 

@@ -168,19 +168,12 @@
   /* Road Visualization */
   .road-container {
     @apply relative overflow-hidden;
-    background: var(--gradient-desert);
+    background: hsl(var(--card));
   }
 
   .road-path {
     @apply relative;
-    background: linear-gradient(
-      90deg,
-      transparent 0%,
-      hsl(var(--route66-brown) / 0.2) 45%,
-      hsl(var(--route66-brown)) 50%,
-      hsl(var(--route66-brown) / 0.2) 55%,
-      transparent 100%
-    );
+    background: none;
   }
 
   /* Route 66 Button Variants */
@@ -230,6 +223,11 @@
   .vintage-card {
     @apply highway-card p-6;
     background: var(--gradient-desert);
+  }
+
+  /* Override gradient for the dashboard road visualization container */
+  .road-container.vintage-card {
+    background: hsl(var(--card));
   }
 
   /* Form Elements */
