@@ -11,7 +11,7 @@ export const Navbar = () => {
         <Link to="/" className="flex items-center gap-3">
           <Car className="h-8 w-8 text-route66-red text-vintage" />
           <h1 className="font-sans font-bold text-xl text-sunset tracking-wide">
-            Route 66 Calendar
+            Roadmap
           </h1>
         </Link>
         

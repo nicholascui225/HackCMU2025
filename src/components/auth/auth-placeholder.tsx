@@ -44,7 +44,7 @@ export const AuthPlaceholder = ({ onAuthSuccess }: AuthPlaceholderProps) => {
             <Car className="h-16 w-16 text-route66-red text-vintage animate-pulse" />
           </div>
           <h1 className="font-highway text-2xl text-sunset mb-2">
-            Route 66 Calendar
+            Roadmap
           </h1>
           <p className="font-americana text-route66-brown text-vintage">
             Join the journey

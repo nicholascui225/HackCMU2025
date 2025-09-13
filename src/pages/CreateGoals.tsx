@@ -6,9 +6,12 @@ import { Navbar } from "@/components/ui/navbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Clock, Target, Plus } from "lucide-react";
+import { MapPin, Clock, Target, Plus, Sparkles, Send, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { addTask, createGoal, listGoals, type Goal } from "@/services/goals";
+import { parseEventsWithAI, getCurrentDateString, type ParsedEvent, type AIEventResponse } from "@/services/ai-events";
+import { isAIConfigured, getAIConfigError } from "@/config/ai";
+import { parseICSFile, readFileAsText, validateICSFile, type ParsedCalendarEvent } from "@/services/ics-parser";
 
 const CreateGoals = () => {
   const { toast } = useToast();
@@ -33,6 +36,18 @@ const CreateGoals = () => {
     endTime: "",
     type: "task"
   });
+
+  const [naturalLanguageInput, setNaturalLanguageInput] = useState("");
+  const [isProcessingAI, setIsProcessingAI] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState<ParsedEvent[]>([]);
+  const [showAiSuggestions, setShowAiSuggestions] = useState(false);
+
+  // Calendar upload state
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [isProcessingUpload, setIsProcessingUpload] = useState(false);
+  const [calendarEvents, setCalendarEvents] = useState<ParsedCalendarEvent[]>([]);
+  const [showCalendarPreview, setShowCalendarPreview] = useState(false);
+  const [uploadErrors, setUploadErrors] = useState<string[]>([]);
 
   const timeOptions = useMemo(() => {
     const times: string[] = [];
@@ -103,6 +118,260 @@ const CreateGoals = () => {
     }
   };
 
+  const handleNaturalLanguageSubmit = async () => {
+    if (!naturalLanguageInput.trim()) {
+      toast({ title: "Empty Input", description: "Please enter some text to create events", variant: "destructive" });
+      return;
+    }
+
+    // Check if AI is configured
+    if (!isAIConfigured()) {
+      const configError = getAIConfigError();
+      toast({ 
+        title: "AI Not Configured", 
+        description: configError || "AI service is not available. Please configure your API key.",
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    // Check if user has goals
+    if (goals.length === 0) {
+      toast({ 
+        title: "No Goals Available", 
+        description: "Please create at least one goal before using AI event creation.",
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    setIsProcessingAI(true);
+    setShowAiSuggestions(false);
+    
+    try {
+      console.log("[CreateGoals] Processing natural language input:", naturalLanguageInput);
+      
+      const userContext = {
+        goals,
+        currentDate: getCurrentDateString(),
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+      };
+
+      const aiResponse: AIEventResponse = await parseEventsWithAI(
+        naturalLanguageInput,
+        userContext,
+        import.meta.env.VITE_GEMINI_API_KEY
+      );
+
+      console.log("[CreateGoals] AI response:", aiResponse);
+
+      if (aiResponse.events.length === 0) {
+        toast({ 
+          title: "No Events Found", 
+          description: "I couldn't identify any events in your input. Try being more specific about dates and times.",
+          variant: "default"
+        });
+        return;
+      }
+
+      // Show AI suggestions
+      setAiSuggestions(aiResponse.events);
+      setShowAiSuggestions(true);
+      
+      toast({ 
+        title: "AI Analysis Complete", 
+        description: `Found ${aiResponse.events.length} event(s). Review and confirm below.`,
+        variant: "default"
+      });
+
+      // Show any errors from AI
+      if (aiResponse.errors && aiResponse.errors.length > 0) {
+        console.warn("[CreateGoals] AI warnings:", aiResponse.errors);
+      }
+      
+    } catch (err: any) {
+      console.error("[CreateGoals] AI processing error:", err);
+      toast({ 
+        title: "AI Processing Error", 
+        description: err?.message || "Failed to process natural language input. Please try again.",
+        variant: "destructive" 
+      });
+    } finally {
+      setIsProcessingAI(false);
+    }
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file
+    const validation = validateICSFile(file);
+    if (!validation.isValid) {
+      toast({
+        title: "Invalid File",
+        description: validation.error || "Please select a valid .ics calendar file",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setUploadedFile(file);
+    setIsProcessingUpload(true);
+    setUploadErrors([]);
+    setCalendarEvents([]);
+    setShowCalendarPreview(false);
+
+    try {
+      console.log("[CreateGoals] Processing uploaded file:", file.name);
+      
+      // Read file content
+      const fileContent = await readFileAsText(file);
+      
+      // Parse ICS content
+      const parseResult = parseICSFile(fileContent);
+      
+      console.log("[CreateGoals] Parsed events:", parseResult.events.length);
+      
+      if (parseResult.events.length === 0) {
+        toast({
+          title: "No Events Found",
+          description: "No calendar events were found in this file.",
+          variant: "default"
+        });
+        return;
+      }
+
+      // Show parsed events
+      setCalendarEvents(parseResult.events);
+      setShowCalendarPreview(true);
+      setUploadErrors(parseResult.errors);
+      
+      toast({
+        title: "Calendar Imported",
+        description: `Found ${parseResult.events.length} event(s). Review and confirm below.`,
+        variant: "default"
+      });
+
+      // Show any parsing errors
+      if (parseResult.errors.length > 0) {
+        console.warn("[CreateGoals] Parsing warnings:", parseResult.errors);
+        toast({
+          title: "Import Warnings",
+          description: `${parseResult.errors.length} event(s) had parsing issues. Check the preview below.`,
+          variant: "default"
+        });
+      }
+
+    } catch (err: any) {
+      console.error("[CreateGoals] File processing error:", err);
+      toast({
+        title: "File Processing Error",
+        description: err?.message || "Failed to process calendar file. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsProcessingUpload(false);
+    }
+  };
+
+  const handleAcceptCalendarEvent = async (event: ParsedCalendarEvent) => {
+    try {
+      // Find the goal to use (use selected goal or first available)
+      const targetGoalId = selectedGoalId || (goals.length > 0 ? goals[0].id : null);
+      
+      if (!targetGoalId) {
+        toast({
+          title: "No Goal Selected",
+          description: "Please select a goal or create one first.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      console.log("[CreateGoals] Adding calendar event:", event.title);
+      
+      await addTask({
+        goal_id: targetGoalId,
+        title: event.title,
+        type: event.type,
+        date: event.startDate,
+        start_time: event.startTime,
+        end_time: event.endTime || undefined,
+      });
+
+      // Remove from preview
+      setCalendarEvents(prev => prev.filter(e => e.id !== event.id));
+      
+      toast({
+        title: "Event Added",
+        description: `"${event.title}" has been added to your journey`,
+        variant: "default"
+      });
+
+    } catch (err: any) {
+      console.error("[CreateGoals] Add calendar event error:", err);
+      toast({
+        title: "Error",
+        description: err?.message || "Failed to add event",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleRejectCalendarEvent = (event: ParsedCalendarEvent) => {
+    setCalendarEvents(prev => prev.filter(e => e.id !== event.id));
+    toast({
+      title: "Event Rejected",
+      description: `"${event.title}" was not added`,
+      variant: "default"
+    });
+  };
+
+  const handleAcceptAISuggestion = async (suggestion: ParsedEvent) => {
+    try {
+      await addTask({
+        goal_id: suggestion.goalId,
+        title: suggestion.title,
+        type: suggestion.type,
+        date: suggestion.date,
+        start_time: suggestion.startTime,
+        end_time: suggestion.endTime || undefined,
+      });
+
+      toast({ 
+        title: "Event Added", 
+        description: `"${suggestion.title}" has been added to your journey`,
+        variant: "default"
+      });
+
+      // Remove the accepted suggestion
+      setAiSuggestions(prev => prev.filter(s => s !== suggestion));
+      
+      // Hide suggestions if none left
+      if (aiSuggestions.length === 1) {
+        setShowAiSuggestions(false);
+        setNaturalLanguageInput("");
+      }
+    } catch (err: any) {
+      console.error("[CreateGoals] Error adding AI suggestion:", err);
+      toast({ 
+        title: "Error", 
+        description: err?.message || "Failed to add event",
+        variant: "destructive" 
+      });
+    }
+  };
+
+  const handleRejectAISuggestion = (suggestion: ParsedEvent) => {
+    setAiSuggestions(prev => prev.filter(s => s !== suggestion));
+    
+    if (aiSuggestions.length === 1) {
+      setShowAiSuggestions(false);
+      setNaturalLanguageInput("");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -156,7 +425,7 @@ const CreateGoals = () => {
                     />
                   </div>
 
-                  <Button onClick={handleAddGoal} variant="desert" className="w-full mt-auto">
+                  <Button onClick={handleAddGoal} variant="desert" className="w-full mt-auto bg-gradient-to-b from-route66-red to-route66-orange hover:from-route66-red/90 hover:to-route66-orange/90 text-white border-0">
                     <Target className="h-4 w-4 mr-2" />
                     Add Goal
                   </Button>
@@ -268,7 +537,7 @@ const CreateGoals = () => {
                     </Select>
                   </div>
 
-                  <Button onClick={addStop} variant="route66" className="w-full">
+                  <Button onClick={addStop} variant="route66" className="w-full bg-gradient-to-b from-route66-red to-route66-orange hover:from-route66-red/90 hover:to-route66-orange/90 text-white border-0">
                     <Plus className="h-4 w-4 mr-2" />
                     Add Stop
                   </Button>
@@ -276,6 +545,333 @@ const CreateGoals = () => {
               </Card>
             </div>
           </div>
+
+          {/* Import Options Section */}
+          <div className="mt-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Natural Language Input Section */}
+              <Card className="retro-card">
+                <CardHeader>
+                  <CardTitle className="font-txc-bold text-route66-red flex items-center gap-2">
+                    <Sparkles className="h-5 w-5" />
+                    AI-Powered Event Creation
+                  </CardTitle>
+                  <p className="font-txc text-muted-foreground text-sm">
+                    Describe your events in natural language and let AI help create your journey
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label htmlFor="natural-language" className="font-txc text-route66-orange">
+                      Describe Your Events
+                    </Label>
+                    <Textarea
+                      id="natural-language"
+                      value={naturalLanguageInput}
+                      onChange={(e) => setNaturalLanguageInput(e.target.value)}
+                      placeholder="Example: 'I have a meeting with the team tomorrow at 2 PM, then I need to finish the project report by Friday, and I want to schedule a workout session every Tuesday and Thursday at 6 AM'"
+                      className="highway-input font-txc mt-1 min-h-[120px]"
+                      rows={5}
+                    />
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs text-muted-foreground font-txc">
+                      💡 Tip: Be specific about dates, times, and event types for better results
+                    </div>
+                    <Button 
+                      onClick={handleNaturalLanguageSubmit} 
+                      variant="route66" 
+                      disabled={isProcessingAI || !naturalLanguageInput.trim()}
+                      className="flex items-center gap-2 px-6 bg-gradient-to-b from-route66-red to-route66-orange hover:from-route66-red/90 hover:to-route66-orange/90 text-white border-0 disabled:opacity-50"
+                    >
+                      {isProcessingAI ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          Create
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Import from Uploads Section */}
+              <Card className="retro-card">
+                <CardHeader>
+                  <CardTitle className="font-txc-bold text-route66-red flex items-center gap-2">
+                    <Upload className="h-5 w-5" />
+                    Import from Calendar Files
+                  </CardTitle>
+                  <p className="font-txc text-muted-foreground text-sm">
+                    Upload .ics calendar files to automatically import events into your journey
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label htmlFor="calendar-upload" className="font-txc text-route66-orange">
+                      Upload Calendar File (.ics)
+                    </Label>
+                    <div className="mt-2">
+                      <input
+                        id="calendar-upload"
+                        type="file"
+                        accept=".ics"
+                        className="hidden"
+                        onChange={handleFileUpload}
+                      />
+                      <Button
+                        variant="outline"
+                        className="w-full h-[120px] border-2 border-dashed border-route66-orange/50 hover:border-route66-orange hover:bg-route66-orange/5 flex flex-col items-center justify-center gap-2 font-txc"
+                        onClick={() => document.getElementById('calendar-upload')?.click()}
+                        disabled={isProcessingUpload}
+                      >
+                        {isProcessingUpload ? (
+                          <>
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-route66-orange"></div>
+                            <span className="text-route66-orange font-medium">Processing...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="h-8 w-8 text-route66-orange" />
+                            <span className="text-route66-orange font-medium">Choose .ics file</span>
+                            <span className="text-xs text-muted-foreground">or drag and drop here</span>
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs text-muted-foreground font-txc">
+                      📅 Supports standard .ics calendar files
+                    </div>
+                    <Button 
+                      variant="desert" 
+                      disabled={calendarEvents.length === 0}
+                      className="flex items-center gap-2 bg-gradient-to-b from-route66-red to-route66-orange hover:from-route66-red/90 hover:to-route66-orange/90 text-white border-0 disabled:opacity-50"
+                      onClick={() => {
+                        if (calendarEvents.length > 0) {
+                          setShowCalendarPreview(true);
+                        }
+                      }}
+                    >
+                      <Upload className="h-4 w-4" />
+                      {calendarEvents.length > 0 ? `Import ${calendarEvents.length} Events` : 'Import Events'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+
+          {/* AI Suggestions */}
+          {showAiSuggestions && aiSuggestions.length > 0 && (
+            <div className="mt-6">
+              <Card className="retro-card">
+                <CardHeader>
+                  <CardTitle className="font-txc-bold text-route66-orange flex items-center gap-2">
+                    <Sparkles className="h-5 w-5" />
+                    AI Suggestions ({aiSuggestions.length})
+                  </CardTitle>
+                  <p className="font-txc text-muted-foreground text-sm">
+                    Review and confirm the events I found in your input
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {aiSuggestions.map((suggestion, index) => (
+                    <div key={index} className="vintage-card p-4 border border-route66-orange/30">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h4 className="font-txc-bold text-route66-red">{suggestion.title}</h4>
+                            <span className={`px-2 py-1 rounded text-xs font-txc ${
+                              suggestion.type === 'event' 
+                                ? 'bg-route66-orange/20 text-route66-orange' 
+                                : 'bg-route66-red/20 text-route66-red'
+                            }`}>
+                              {suggestion.type}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {Math.round(suggestion.confidence * 100)}% confidence
+                            </span>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm font-txc text-muted-foreground">
+                            <div>
+                              <span className="text-route66-orange">Goal:</span> {suggestion.goalTitle}
+                            </div>
+                            <div>
+                              <span className="text-route66-orange">Date:</span> {suggestion.date}
+                            </div>
+                            <div>
+                              <span className="text-route66-orange">Time:</span> {suggestion.startTime}
+                              {suggestion.endTime && ` - ${suggestion.endTime}`}
+                            </div>
+                            <div>
+                              <span className="text-route66-orange">Reasoning:</span> {suggestion.reasoning}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex gap-2 ml-4">
+                          <Button
+                            onClick={() => handleAcceptAISuggestion(suggestion)}
+                            variant="route66"
+                            size="sm"
+                            className="font-txc bg-gradient-to-b from-route66-red to-route66-orange hover:from-route66-red/90 hover:to-route66-orange/90 text-white border-0"
+                          >
+                            Accept
+                          </Button>
+                          <Button
+                            onClick={() => handleRejectAISuggestion(suggestion)}
+                            variant="outline"
+                            size="sm"
+                            className="font-txc border-route66-orange text-route66-orange hover:bg-route66-orange/10"
+                          >
+                            Reject
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  <div className="flex justify-between items-center pt-4 border-t border-border">
+                    <Button
+                      onClick={() => {
+                        setShowAiSuggestions(false);
+                        setAiSuggestions([]);
+                        setNaturalLanguageInput("");
+                      }}
+                      variant="outline"
+                      className="font-txc"
+                    >
+                      Cancel
+                    </Button>
+                    <div className="text-xs text-muted-foreground font-txc">
+                      Accept events you want to add to your journey
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Calendar Import Preview */}
+          {showCalendarPreview && calendarEvents.length > 0 && (
+            <div className="mt-6">
+              <Card className="retro-card">
+                <CardHeader>
+                  <CardTitle className="font-txc-bold text-route66-orange flex items-center gap-2">
+                    <Upload className="h-5 w-5" />
+                    Calendar Import Preview ({calendarEvents.length})
+                  </CardTitle>
+                  <p className="font-txc text-muted-foreground text-sm">
+                    Review and confirm the events from your calendar file
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {calendarEvents.map((event, index) => (
+                    <div key={event.id} className="vintage-card p-4 border border-route66-orange/30">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h4 className="font-txc-bold text-route66-red">{event.title}</h4>
+                            <span className={`px-2 py-1 rounded text-xs font-txc ${
+                              event.type === 'event' 
+                                ? 'bg-route66-orange/20 text-route66-orange' 
+                                : 'bg-route66-red/20 text-route66-red'
+                            }`}>
+                              {event.type}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {Math.round(event.confidence * 100)}% confidence
+                            </span>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm font-txc text-muted-foreground">
+                            <div>
+                              <span className="text-route66-orange">Date:</span> {event.startDate}
+                            </div>
+                            <div>
+                              <span className="text-route66-orange">Time:</span> {event.startTime}
+                              {event.endTime && ` - ${event.endTime}`}
+                            </div>
+                            {event.location && (
+                              <div>
+                                <span className="text-route66-orange">Location:</span> {event.location}
+                              </div>
+                            )}
+                            <div>
+                              <span className="text-route66-orange">Source:</span> {event.reasoning}
+                            </div>
+                          </div>
+                          
+                          {event.description && (
+                            <div className="mt-2 text-sm font-txc text-muted-foreground">
+                              <span className="text-route66-orange">Description:</span> {event.description}
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="flex gap-2 ml-4">
+                          <Button
+                            onClick={() => handleAcceptCalendarEvent(event)}
+                            variant="route66"
+                            size="sm"
+                            className="font-txc bg-gradient-to-b from-route66-red to-route66-orange hover:from-route66-red/90 hover:to-route66-orange/90 text-white border-0"
+                          >
+                            Accept
+                          </Button>
+                          <Button
+                            onClick={() => handleRejectCalendarEvent(event)}
+                            variant="outline"
+                            size="sm"
+                            className="font-txc border-route66-orange text-route66-orange hover:bg-route66-orange/10"
+                          >
+                            Reject
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {uploadErrors.length > 0 && (
+                    <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <h4 className="font-txc-bold text-yellow-800 mb-2">Import Warnings:</h4>
+                      <ul className="text-sm text-yellow-700 font-txc space-y-1">
+                        {uploadErrors.map((error, index) => (
+                          <li key={index}>• {error}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  
+                  <div className="flex justify-between items-center pt-4 border-t border-border">
+                    <Button
+                      onClick={() => {
+                        setShowCalendarPreview(false);
+                        setCalendarEvents([]);
+                        setUploadedFile(null);
+                        setUploadErrors([]);
+                      }}
+                      variant="outline"
+                      className="font-txc"
+                    >
+                      Cancel
+                    </Button>
+                    <div className="text-xs text-muted-foreground font-txc">
+                      Accept events you want to add to your journey
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -1,4 +1,4 @@
-# Route 66 Calendar
+# Roadmap
 
 A retro-themed calendar that visualizes your day as a road trip. Built with React, Vite, TypeScript, Tailwind, shadcn-ui, and Supabase (auth + persistence).
 

@@ -6,7 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Target, MapPin, Clock, Calendar, CheckCircle, Circle, Edit, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { listGoalsWithTasks, toggleTask, type Task } from "@/services/goals";
+import { listGoalsWithTasks, toggleTask, deleteTask, type Task } from "@/services/goals";
 
 interface Goal {
   id: string;
@@ -68,6 +68,49 @@ const GoalsTracker = () => {
     } catch (err: any) {
       console.error(err);
       toast({ title: "Error", description: err?.message || "Failed to update task", variant: "destructive" });
+    }
+  };
+
+  const handleDeleteTask = async (goalId: string, taskId: string, taskTitle: string) => {
+    try {
+      // Optimistic update - remove task from UI immediately
+      setGoals((prev) => prev.map((g) => ({
+        ...g,
+        tasks: g.tasks.filter((t) => t.id !== taskId)
+      })));
+      
+      await deleteTask(taskId);
+      toast({ 
+        title: "Task Deleted", 
+        description: `"${taskTitle}" has been removed from your journey` 
+      });
+    } catch (err: any) {
+      console.error(err);
+      // Revert optimistic update on error
+      const data = await listGoalsWithTasks();
+      const normalized = data.map((g: any) => ({
+        id: g.id,
+        title: g.title,
+        description: g.description ?? "",
+        createdAt: g.created_at,
+        completedAt: g.completed_at ?? undefined,
+        tasks: (g.tasks ?? []).map((t: any) => ({
+          id: t.id,
+          title: t.title,
+          startTime: (t.start_time ?? "")?.slice(0,5),
+          endTime: (t.end_time ?? "")?.slice(0,5),
+          type: t.type,
+          completed: t.completed,
+          date: t.date ?? "",
+        }))
+      }));
+      setGoals(normalized);
+      
+      toast({ 
+        title: "Error", 
+        description: err?.message || "Failed to delete task", 
+        variant: "destructive" 
+      });
     }
   };
 
@@ -236,16 +279,28 @@ const GoalsTracker = () => {
                               </div>
                             </div>
                             
-                            <Badge 
-                              variant="outline" 
-                              className={`font-mono-retro text-xs capitalize ${
-                                task.type === 'goal' ? 'border-retro-green text-retro-green' :
-                                task.type === 'event' ? 'border-retro-amber text-retro-amber' :
-                                'border-muted-foreground text-muted-foreground'
-                              }`}
-                            >
-                              {task.type}
-                            </Badge>
+                            <div className="flex items-center gap-2">
+                              <Badge 
+                                variant="outline" 
+                                className={`font-mono-retro text-xs capitalize ${
+                                  task.type === 'goal' ? 'border-retro-green text-retro-green' :
+                                  task.type === 'event' ? 'border-retro-amber text-retro-amber' :
+                                  'border-muted-foreground text-muted-foreground'
+                                }`}
+                              >
+                                {task.type}
+                              </Badge>
+                              
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                onClick={() => handleDeleteTask(goal.id, task.id, task.title)}
+                                title="Delete task"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
                           </div>
                         ))}
                       </div>

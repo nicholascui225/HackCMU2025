@@ -4,7 +4,7 @@ import { Navbar } from "@/components/ui/navbar";
 import { RoadVisualization } from "@/components/retro/road-visualization";
 import { Link } from "react-router-dom";
 import { PlusCircle, Target, Calendar, BarChart3 } from "lucide-react";
-import { listTodayTasks, type Task as DbTask } from "@/services/goals";
+import { listTodayTasks, toggleTask, type Task as DbTask } from "@/services/goals";
 import { useToast } from "@/hooks/use-toast";
 
 const Dashboard = () => {
@@ -39,6 +39,42 @@ const Dashboard = () => {
   const completedTasks = tasks.filter(task => task.completed).length;
   const totalTasks = tasks.length;
 
+  const handleTaskToggle = async (taskId: string) => {
+    try {
+      // Find the current task to get its current completion status
+      const currentTask = tasks.find(t => t.id === taskId);
+      if (!currentTask) return;
+
+      // Optimistic update
+      setTasks(prev => prev.map(task => 
+        task.id === taskId 
+          ? { ...task, completed: !task.completed }
+          : task
+      ));
+
+      // Update in database
+      await toggleTask(taskId, !currentTask.completed);
+      
+      toast({ 
+        title: "Task Updated", 
+        description: `Task ${!currentTask.completed ? 'completed' : 'marked as incomplete'}` 
+      });
+    } catch (err: any) {
+      console.error(err);
+      // Revert optimistic update on error
+      setTasks(prev => prev.map(task => 
+        task.id === taskId 
+          ? { ...task, completed: !task.completed }
+          : task
+      ));
+      toast({ 
+        title: "Error", 
+        description: err?.message || "Failed to update task", 
+        variant: "destructive" 
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -48,10 +84,10 @@ const Dashboard = () => {
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="font-highway text-3xl text-sunset mb-2">
+              <h1 className="font-txc-bold text-3xl text-sunset mb-2">
                 Mission Control
               </h1>
-              <p className="font-americana text-lg text-route66-brown text-vintage">
+              <p className="font-txc text-lg text-route66-brown text-vintage">
                 {currentDate}
               </p>
             </div>
@@ -70,30 +106,30 @@ const Dashboard = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
             <div className="vintage-card p-4 text-center">
               <Calendar className="h-6 w-6 text-route66-red mx-auto mb-2" />
-              <div className="font-highway text-lg text-route66-red">
+              <div className="font-txc-bold text-lg text-route66-red">
                 {totalTasks}
               </div>
-              <div className="font-americana text-sm text-muted-foreground">
+              <div className="font-txc text-sm text-muted-foreground">
                 Stops Planned
               </div>
             </div>
             
             <div className="vintage-card p-4 text-center">
               <Target className="h-6 w-6 text-route66-orange mx-auto mb-2" />
-              <div className="font-highway text-lg text-route66-orange">
+              <div className="font-txc-bold text-lg text-route66-orange">
                 {completedTasks}
               </div>
-              <div className="font-americana text-sm text-muted-foreground">
+              <div className="font-txc text-sm text-muted-foreground">
                 Completed
               </div>
             </div>
             
             <div className="vintage-card p-4 text-center">
               <BarChart3 className="h-6 w-6 text-route66-red mx-auto mb-2" />
-              <div className="font-highway text-lg text-route66-red">
+              <div className="font-txc-bold text-lg text-route66-red">
                 {totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0}%
               </div>
-              <div className="font-americana text-sm text-muted-foreground">
+              <div className="font-txc text-sm text-muted-foreground">
                 Progress
               </div>
             </div>
@@ -101,36 +137,40 @@ const Dashboard = () => {
         </div>
 
         {/* Road Visualization */}
-        <RoadVisualization tasks={tasks} currentTime={new Date().toTimeString().slice(0,5)} />
+        <RoadVisualization 
+          tasks={tasks} 
+          currentTime={new Date().toTimeString().slice(0,5)} 
+          onTaskToggle={handleTaskToggle}
+        />
 
         {/* Quick Actions */}
         <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
           <Link to="/create" className="vintage-card p-6 hover:bg-route66-sand/20 transition-colors">
             <PlusCircle className="h-8 w-8 text-route66-red mb-3" />
-            <h3 className="font-highway text-lg text-route66-red mb-2">
+            <h3 className="font-txc-bold text-lg text-route66-red mb-2">
               Create Goals
             </h3>
-            <p className="font-americana text-muted-foreground">
+            <p className="font-txc text-muted-foreground">
               Plan new destinations for your journey
             </p>
           </Link>
           
           <Link to="/goals" className="vintage-card p-6 hover:bg-route66-sand/20 transition-colors">
             <Target className="h-8 w-8 text-route66-orange mb-3" />
-            <h3 className="font-highway text-lg text-route66-orange mb-2">
+            <h3 className="font-txc-bold text-lg text-route66-orange mb-2">
               Track Goals
             </h3>
-            <p className="font-americana text-muted-foreground">
+            <p className="font-txc text-muted-foreground">
               Monitor progress towards your destinations
             </p>
           </Link>
           
           <Link to="/progress" className="vintage-card p-6 hover:bg-route66-sand/20 transition-colors">
             <BarChart3 className="h-8 w-8 text-route66-red mb-3" />
-            <h3 className="font-highway text-lg text-route66-red mb-2">
+            <h3 className="font-txc-bold text-lg text-route66-red mb-2">
               View Reports
             </h3>
-            <p className="font-americana text-muted-foreground">
+            <p className="font-txc text-muted-foreground">
               Analyze your journey statistics
             </p>
           </Link>

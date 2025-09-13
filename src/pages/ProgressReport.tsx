@@ -244,7 +244,7 @@ const ProgressReport = () => {
 
           {/* Save Progress */}
           <div className="text-center">
-            <Button onClick={saveProgress} variant="route66" size="lg" className="font-americana">
+            <Button onClick={saveProgress} variant="route66" size="lg" className="font-sans bg-gradient-to-b from-route66-red to-route66-orange hover:from-route66-red/90 hover:to-route66-orange/90 text-white border-0">
               <Save className="h-4 w-4 mr-2" />
               Save Daily Progress
             </Button>

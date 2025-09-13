@@ -202,4 +202,15 @@ export async function addTask(params: {
   return data as Task;
 }
 
+export async function deleteTask(taskId: string): Promise<void> {
+  const { error } = await supabase
+    .from("tasks")
+    .delete()
+    .eq("id", taskId);
+  
+  if (error) {
+    throw new Error(`Failed to delete task: ${error.message}`);
+  }
+}
+
 
