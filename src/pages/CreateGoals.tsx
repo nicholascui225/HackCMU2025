@@ -110,10 +110,10 @@ const CreateGoals = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-6xl mx-auto">
           <div className="mb-8">
-            <h1 className="font-pixel text-3xl text-retro-green text-glow mb-2">
+            <h1 className="font-txc-bold text-3xl text-sunset mb-2">
               Plan Your Journey
             </h1>
-            <p className="font-mono-retro text-lg text-retro-amber text-glow-amber">
+            <p className="font-txc text-lg text-route66-orange">
               Create goals and map out the stops along your way
             </p>
           </div>
@@ -123,14 +123,14 @@ const CreateGoals = () => {
             <div className="space-y-6 flex flex-col h-full">
               <Card className="retro-card h-full">
                 <CardHeader>
-                  <CardTitle className="font-pixel text-retro-green flex items-center gap-2">
+                  <CardTitle className="font-txc-bold text-route66-red flex items-center gap-2">
                     <Target className="h-5 w-5" />
                     Goal Details
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4 flex flex-col h-full">
                   <div>
-                    <Label htmlFor="goal-title" className="font-mono-retro text-retro-amber">
+                    <Label htmlFor="goal-title" className="font-txc text-route66-orange">
                       Goal Title
                     </Label>
                     <Input
@@ -138,12 +138,12 @@ const CreateGoals = () => {
                       value={goalTitle}
                       onChange={(e) => setGoalTitle(e.target.value)}
                       placeholder="Enter your destination..."
-                      className="retro-input font-mono-retro mt-1"
+                      className="highway-input font-txc mt-1"
                     />
                   </div>
                   
                   <div>
-                    <Label htmlFor="goal-description" className="font-mono-retro text-retro-amber">
+                    <Label htmlFor="goal-description" className="font-txc text-route66-orange">
                       Description
                     </Label>
                     <Textarea
@@ -151,7 +151,7 @@ const CreateGoals = () => {
                       value={goalDescription}
                       onChange={(e) => setGoalDescription(e.target.value)}
                       placeholder="Describe your journey..."
-                      className="retro-input font-mono-retro mt-1"
+                      className="highway-input font-txc mt-1"
                       rows={3}
                     />
                   </div>
@@ -168,7 +168,7 @@ const CreateGoals = () => {
             <div className="space-y-6 flex flex-col h-full">
               <Card className="retro-card h-full">
                 <CardHeader>
-                  <CardTitle className="font-pixel text-retro-amber flex items-center gap-2">
+                  <CardTitle className="font-txc-bold text-route66-orange flex items-center gap-2">
                     <MapPin className="h-5 w-5" />
                     Add Stop
                   </CardTitle>
@@ -203,7 +203,7 @@ const CreateGoals = () => {
                       value={newTask.title}
                       onChange={(e) => setNewTask({...newTask, title: e.target.value})}
                       placeholder="What needs to be done?"
-                      className="retro-input font-mono-retro mt-1"
+                      className="highway-input font-txc mt-1"
                     />
                   </div>
 
@@ -254,7 +254,7 @@ const CreateGoals = () => {
                   </div>
 
                   <div>
-                    <Label htmlFor="task-type" className="font-mono-retro text-retro-amber">
+                    <Label htmlFor="task-type" className="font-txc text-route66-orange">
                       Type
                     </Label>
                     <Select value={newTask.type} onValueChange={(value) => setNewTask({...newTask, type: value as 'event' | 'task'})}>

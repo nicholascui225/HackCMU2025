@@ -17,7 +17,7 @@ create table if not exists public.tasks (
   user_id uuid not null references auth.users(id) on delete cascade,
   goal_id uuid references public.goals(id) on delete cascade,
   title text not null,
-  type text not null check (type in ('event','task','goal')),
+  type text not null check (type in ('event','task','goal','sleep','eat','selfcare')),
   date date,
   start_time time,
   end_time time,

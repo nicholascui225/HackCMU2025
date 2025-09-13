@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -130,7 +131,31 @@
 
   body {
     @apply bg-background text-foreground font-sans;
-    background: linear-gradient(135deg, hsl(var(--route66-desert)), hsl(var(--route66-sand)));
+    background: 
+      /* Sand texture overlay */
+      radial-gradient(circle at 25% 25%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+      radial-gradient(circle at 75% 75%, rgba(255, 255, 255, 0.08) 0%, transparent 50%),
+      radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.06) 0%, transparent 60%),
+      /* Base desert gradient */
+      linear-gradient(135deg, 
+        hsl(var(--route66-desert)) 0%, 
+        hsl(32, 25%, 94%) 25%,
+        hsl(var(--route66-sand)) 50%, 
+        hsl(32, 25%, 96%) 75%,
+        hsl(var(--route66-desert)) 100%
+      );
+    background-size: 300px 300px, 250px 250px, 400px 400px, 100% 100%;
+    background-position: 0 0, 100px 100px, 200px 200px, 0 0;
+    animation: bodySandShimmer 20s ease-in-out infinite;
+  }
+
+  @keyframes bodySandShimmer {
+    0%, 100% {
+      background-position: 0 0, 100px 100px, 200px 200px, 0 0;
+    }
+    50% {
+      background-position: 50px 50px, 150px 150px, 250px 250px, 0 0;
+    }
   }
 }
 
@@ -207,15 +232,32 @@
     transform: translateY(-1px);
   }
 
-  /* Vintage Fonts */
+  /* TXC Pearl Font (using Orbitron as substitute) */
+  .font-txc {
+    font-family: 'Orbitron', 'Inter', sans-serif;
+    font-weight: 400;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .font-txc-bold {
+    font-family: 'Orbitron', 'Inter', sans-serif;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  /* Clean retro sans serif fonts */
   .font-highway {
-    font-family: 'Georgia', serif;
+    font-family: 'Inter', 'Orbitron', sans-serif;
     font-weight: 700;
     letter-spacing: 0.02em;
+    text-transform: uppercase;
   }
 
   .font-americana {
-    font-family: 'Times New Roman', serif;
+    font-family: 'Inter', 'Orbitron', sans-serif;
+    font-weight: 500;
     letter-spacing: 0.01em;
   }
 
@@ -244,5 +286,125 @@
     box-shadow: 
       inset 0 2px 4px hsl(var(--route66-brown) / 0.1),
       0 0 0 2px hsl(var(--route66-red) / 0.2);
+  }
+
+  /* Sandy Background */
+  .sandy-background {
+    background: 
+      /* Sand grain texture */
+      radial-gradient(circle at 15% 30%, rgba(255, 255, 255, 0.15) 0%, transparent 30%),
+      radial-gradient(circle at 85% 15%, rgba(255, 255, 255, 0.12) 0%, transparent 35%),
+      radial-gradient(circle at 45% 75%, rgba(255, 255, 255, 0.18) 0%, transparent 25%),
+      radial-gradient(circle at 70% 60%, rgba(255, 255, 255, 0.1) 0%, transparent 40%),
+      radial-gradient(circle at 25% 80%, rgba(255, 255, 255, 0.14) 0%, transparent 30%),
+      /* Sand dune shadows */
+      radial-gradient(ellipse at 30% 20%, rgba(139, 69, 19, 0.08) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 70%, rgba(160, 82, 45, 0.06) 0%, transparent 50%),
+      /* Base sand gradient */
+      linear-gradient(135deg, 
+        hsl(var(--route66-sand)) 0%, 
+        hsl(32, 30%, 88%) 15%,
+        hsl(var(--route66-desert)) 30%, 
+        hsl(32, 28%, 90%) 45%,
+        hsl(var(--route66-sand)) 60%, 
+        hsl(32, 30%, 87%) 75%,
+        hsl(var(--route66-desert)) 90%,
+        hsl(var(--route66-sand)) 100%
+      );
+    background-size: 
+      120px 120px, 
+      100px 100px, 
+      140px 140px, 
+      90px 90px, 
+      110px 110px,
+      200px 100px,
+      180px 80px,
+      100% 100%;
+    background-position: 
+      0 0, 
+      30px 30px, 
+      60px 60px, 
+      90px 90px, 
+      120px 120px,
+      0 0,
+      0 0,
+      0 0;
+    animation: sandShimmer 12s ease-in-out infinite;
+    position: relative;
+  }
+
+  .sandy-background::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+      /* Fine sand particles */
+      radial-gradient(circle at 20% 40%, rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+      radial-gradient(circle at 60% 20%, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+      radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.1) 1px, transparent 1px),
+      radial-gradient(circle at 40% 60%, rgba(255, 255, 255, 0.07) 1px, transparent 1px);
+    background-size: 50px 50px, 60px 60px, 45px 45px, 55px 55px;
+    background-position: 0 0, 25px 25px, 12px 12px, 37px 37px;
+    animation: sandParticles 15s linear infinite;
+    pointer-events: none;
+  }
+
+  @keyframes sandShimmer {
+    0%, 100% {
+      background-position: 
+        0 0, 
+        30px 30px, 
+        60px 60px, 
+        90px 90px, 
+        120px 120px,
+        0 0,
+        0 0,
+        0 0;
+    }
+    25% {
+      background-position: 
+        10px 10px, 
+        40px 40px, 
+        70px 70px, 
+        100px 100px, 
+        130px 130px,
+        5px 5px,
+        3px 3px,
+        0 0;
+    }
+    50% {
+      background-position: 
+        20px 20px, 
+        50px 50px, 
+        80px 80px, 
+        110px 110px, 
+        140px 140px,
+        10px 10px,
+        6px 6px,
+        0 0;
+    }
+    75% {
+      background-position: 
+        15px 15px, 
+        45px 45px, 
+        75px 75px, 
+        105px 105px, 
+        135px 135px,
+        7px 7px,
+        4px 4px,
+        0 0;
+    }
+  }
+
+  @keyframes sandParticles {
+    0% {
+      background-position: 0 0, 25px 25px, 12px 12px, 37px 37px;
+    }
+    100% {
+      background-position: 50px 50px, 75px 75px, 62px 62px, 87px 87px;
+    }
   }
 }
