@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MapPin, Clock, Target, Plus, Sparkles, Send, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { addTask, createGoal, listGoals, type Goal } from "@/services/goals";
+import { addTask, createGoal, listGoals, listTodayTasks, type Goal } from "@/services/goals";
 import { parseEventsWithAI, getCurrentDateString, type ParsedEvent, type AIEventResponse } from "../services/ai-events";
 import { isAIConfigured, getAIConfigError } from "@/config/ai";
 import { parseICSFile, readFileAsText, validateICSFile, parseRRuleFrequency, type ParsedCalendarEvent } from "@/services/ics-parser";
@@ -150,6 +150,24 @@ const CreateGoals = () => {
       return;
     }
 
+    // Additional check for API key
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    console.log("[CreateGoals] Environment check:", {
+      hasApiKey: !!apiKey,
+      apiKeyLength: apiKey?.length || 0,
+      apiKeyPrefix: apiKey?.substring(0, 10) + "...",
+      allEnvVars: Object.keys(import.meta.env).filter(key => key.startsWith('VITE_'))
+    });
+    
+    if (!apiKey) {
+      toast({ 
+        title: "Missing API Key", 
+        description: "Please add VITE_GEMINI_API_KEY to your .env file. See ENV_SETUP.md for instructions.",
+        variant: "destructive" 
+      });
+      return;
+    }
+
     // Check if user has goals
     if (goals.length === 0) {
       toast({ 
@@ -166,10 +184,19 @@ const CreateGoals = () => {
     try {
       console.log("[CreateGoals] Processing natural language input:", naturalLanguageInput);
       
+      // Get existing tasks for today to avoid conflicts
+      const existingTasks = await listTodayTasks();
+      
       const userContext = {
         goals,
         currentDate: getCurrentDateString(),
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        existingTasks: existingTasks.map(task => ({
+          date: task.date || getCurrentDateString(),
+          startTime: task.start_time || '09:00',
+          endTime: task.end_time || undefined,
+          title: task.title
+        }))
       };
 
       const aiResponse: AIEventResponse = await parseEventsWithAI(

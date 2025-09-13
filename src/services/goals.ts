@@ -135,14 +135,18 @@ export async function listTodayTasks(): Promise<Task[]> {
   const dd = String(today.getDate()).padStart(2, "0");
   const isoDate = `${yyyy}-${mm}-${dd}`;
   
+  return listTasksForDate(isoDate);
+}
+
+export async function listTasksForDate(date: string): Promise<Task[]> {
   const { data, error } = await supabase
     .from("tasks")
     .select("*")
-    .eq("date", isoDate)
+    .eq("date", date)
     .order("start_time", { ascending: true });
   
   if (error) {
-    throw new Error(`Failed to fetch today's tasks: ${error.message}`);
+    throw new Error(`Failed to fetch tasks for ${date}: ${error.message}`);
   }
   
   // Transform tasks for dashboard compatibility

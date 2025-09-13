@@ -5,7 +5,7 @@ interface Task {
   title: string;
   time: string;
   completed: boolean;
-  type: 'event' | 'task' | 'goal';
+  type: 'event' | 'task' | 'goal' | 'sleep' | 'eat' | 'selfcare';
 }
 
 interface RoadVisualizationProps {

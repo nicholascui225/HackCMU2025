@@ -3,24 +3,49 @@ import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/ui/navbar";
 import { RoadVisualization } from "@/components/retro/road-visualization";
 import { Link } from "react-router-dom";
-import { PlusCircle, Target, Calendar, BarChart3 } from "lucide-react";
-import { listTodayTasks, toggleTask, type Task as DbTask } from "@/services/goals";
+import { PlusCircle, Target, Calendar, BarChart3, ChevronLeft, ChevronRight } from "lucide-react";
+import { listTodayTasks, listTasksForDate, toggleTask, type Task as DbTask } from "@/services/goals";
 import { useToast } from "@/hooks/use-toast";
 
 const Dashboard = () => {
   const { toast } = useToast();
-  const [tasks, setTasks] = useState<Array<{ id: string; title: string; time: string; completed: boolean; type: 'event' | 'task' | 'goal'; }>>([]);
-  const currentDate = new Date().toLocaleDateString('en-US', { 
-    weekday: 'long', 
-    year: 'numeric', 
-    month: 'long', 
-    day: 'numeric' 
-  });
+  const [tasks, setTasks] = useState<Array<{ id: string; title: string; time: string; completed: boolean; type: DbTask['type']; }>>([]);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  
+  // Helper functions for date navigation
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString('en-US', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+  };
+  
+  const formatDateForAPI = (date: Date) => {
+    return date.toISOString().split('T')[0]; // YYYY-MM-DD format
+  };
+  
+  const isToday = (date: Date) => {
+    const today = new Date();
+    return date.toDateString() === today.toDateString();
+  };
+  
+  const navigateDate = (direction: 'prev' | 'next') => {
+    const newDate = new Date(selectedDate);
+    newDate.setDate(newDate.getDate() + (direction === 'next' ? 1 : -1));
+    setSelectedDate(newDate);
+  };
+  
+  const goToToday = () => {
+    setSelectedDate(new Date());
+  };
 
   useEffect(() => {
     (async () => {
       try {
-        const data: DbTask[] = await listTodayTasks();
+        const dateStr = formatDateForAPI(selectedDate);
+        const data: DbTask[] = await listTasksForDate(dateStr);
         const mapped = data.map((t) => ({
           id: t.id,
           title: t.title,
@@ -31,10 +56,11 @@ const Dashboard = () => {
         setTasks(mapped);
       } catch (err: any) {
         console.error(err);
-        toast({ title: 'Error', description: err?.message || 'Failed to load today\'s tasks', variant: 'destructive' });
+        const dateLabel = isToday(selectedDate) ? 'today\'s' : formatDate(selectedDate);
+        toast({ title: 'Error', description: err?.message || `Failed to load ${dateLabel} tasks`, variant: 'destructive' });
       }
     })();
-  }, [toast]);
+  }, [selectedDate, toast]);
 
   const completedTasks = tasks.filter(task => task.completed).length;
   const totalTasks = tasks.length;
@@ -87,9 +113,45 @@ const Dashboard = () => {
               <h1 className="font-txc-bold text-3xl text-sunset mb-2">
                 Mission Control
               </h1>
-              <p className="font-txc text-lg text-route66-brown text-vintage">
-                {currentDate}
-              </p>
+              
+              {/* Date Navigation */}
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={() => navigateDate('prev')}
+                    variant="outline"
+                    size="sm"
+                    className="font-txc border-route66-orange text-route66-orange hover:bg-route66-orange/10"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  
+                  <div className="text-center min-w-[200px]">
+                    <p className="font-txc text-lg text-route66-brown text-vintage">
+                      {formatDate(selectedDate)}
+                    </p>
+                    {!isToday(selectedDate) && (
+                      <Button
+                        onClick={goToToday}
+                        variant="ghost"
+                        size="sm"
+                        className="font-txc text-xs text-muted-foreground hover:text-route66-orange"
+                      >
+                        Go to Today
+                      </Button>
+                    )}
+                  </div>
+                  
+                  <Button
+                    onClick={() => navigateDate('next')}
+                    variant="outline"
+                    size="sm"
+                    className="font-txc border-route66-orange text-route66-orange hover:bg-route66-orange/10"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
             </div>
             
             <div className="flex gap-3">
@@ -110,7 +172,7 @@ const Dashboard = () => {
                 {totalTasks}
               </div>
               <div className="font-txc text-sm text-muted-foreground">
-                Stops Planned
+                {isToday(selectedDate) ? 'Stops Planned' : 'Planned'}
               </div>
             </div>
             
@@ -139,7 +201,7 @@ const Dashboard = () => {
         {/* Road Visualization */}
         <RoadVisualization 
           tasks={tasks} 
-          currentTime={new Date().toTimeString().slice(0,5)} 
+          currentTime={isToday(selectedDate) ? new Date().toTimeString().slice(0,5) : undefined} 
           onTaskToggle={handleTaskToggle}
         />
 
