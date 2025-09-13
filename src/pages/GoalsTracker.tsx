@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/ui/navbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,124 +6,69 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Target, MapPin, Clock, Calendar, CheckCircle, Circle, Edit, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-
-interface Task {
-  id: string;
-  title: string;
-  startTime: string;
-  endTime: string;
-  type: 'event' | 'task' | 'goal';
-  completed: boolean;
-  date: string;
-}
+import { listGoalsWithTasks, toggleTask, type Task } from "@/services/goals";
 
 interface Goal {
   id: string;
   title: string;
   description: string;
   tasks: Task[];
-  createdAt: string;
+  createdAt?: string;
   completedAt?: string;
 }
 
-// Mock data
-const mockGoals: Goal[] = [
-  {
-    id: "1",
-    title: "Complete Project Alpha",
-    description: "Finish the new product feature development",
-    createdAt: "2024-01-15",
-    tasks: [
-      {
-        id: "t1",
-        title: "Design wireframes",
-        startTime: "09:00",
-        endTime: "11:00",
-        type: "task",
-        completed: true,
-        date: "2024-01-15"
-      },
-      {
-        id: "t2",
-        title: "Code implementation",
-        startTime: "14:00",
-        endTime: "17:00",
-        type: "task",
-        completed: true,
-        date: "2024-01-16"
-      },
-      {
-        id: "t3",
-        title: "Testing & QA",
-        startTime: "10:00",
-        endTime: "12:00",
-        type: "task",
-        completed: false,
-        date: "2024-01-17"
-      },
-      {
-        id: "t4",
-        title: "Team review meeting",
-        startTime: "15:00",
-        endTime: "16:00",
-        type: "event",
-        completed: false,
-        date: "2024-01-18"
-      }
-    ]
-  },
-  {
-    id: "2",
-    title: "Health & Fitness Journey",
-    description: "Establish a consistent workout routine",
-    createdAt: "2024-01-10",
-    completedAt: "2024-01-20",
-    tasks: [
-      {
-        id: "t5",
-        title: "Morning run",
-        startTime: "07:00",
-        endTime: "08:00",
-        type: "task",
-        completed: true,
-        date: "2024-01-10"
-      },
-      {
-        id: "t6",
-        title: "Gym workout",
-        startTime: "18:00",
-        endTime: "19:30",
-        type: "task",
-        completed: true,
-        date: "2024-01-11"
-      },
-      {
-        id: "t7",
-        title: "Nutrition planning",
-        startTime: "12:00",
-        endTime: "13:00",
-        type: "goal",
-        completed: true,
-        date: "2024-01-12"
-      }
-    ]
-  }
-];
-
 const GoalsTracker = () => {
   const { toast } = useToast();
-  const [goals] = useState<Goal[]>(mockGoals);
+  const [goals, setGoals] = useState<Goal[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const data = await listGoalsWithTasks();
+        // Normalize field names to existing UI expectations
+        const normalized = data.map((g: any) => ({
+          id: g.id,
+          title: g.title,
+          description: g.description ?? "",
+          createdAt: g.created_at,
+          completedAt: g.completed_at ?? undefined,
+          tasks: (g.tasks ?? []).map((t: any) => ({
+            id: t.id,
+            title: t.title,
+            startTime: (t.start_time ?? "")?.slice(0,5),
+            endTime: (t.end_time ?? "")?.slice(0,5),
+            type: t.type,
+            completed: t.completed,
+            date: t.date ?? "",
+          }))
+        }));
+        setGoals(normalized);
+      } catch (err: any) {
+        console.error(err);
+        toast({ title: "Error", description: err?.message || "Failed to load goals", variant: "destructive" });
+      }
+    })();
+  }, [toast]);
 
   const getGoalProgress = (goal: Goal) => {
     const completedTasks = goal.tasks.filter(task => task.completed).length;
     return goal.tasks.length > 0 ? (completedTasks / goal.tasks.length) * 100 : 0;
   };
 
-  const toggleTaskCompletion = (goalId: string, taskId: string) => {
-    toast({
-      title: "Task Updated",
-      description: "Task completion status has been updated",
-    });
+  const toggleTaskCompletion = async (_goalId: string, taskId: string) => {
+    try {
+      // optimistic update
+      setGoals((prev) => prev.map((g) => ({
+        ...g,
+        tasks: g.tasks.map((t) => t.id === taskId ? { ...t, completed: !t.completed } : t)
+      })));
+      const current = goals.flatMap((g) => g.tasks).find((t) => t.id === taskId);
+      await toggleTask(taskId, !(current?.completed ?? false));
+      toast({ title: "Task Updated", description: "Task completion status has been updated" });
+    } catch (err: any) {
+      console.error(err);
+      toast({ title: "Error", description: err?.message || "Failed to update task", variant: "destructive" });
+    }
   };
 
   const getTypeIcon = (type: string) => {

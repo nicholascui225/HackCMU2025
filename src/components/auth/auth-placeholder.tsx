@@ -4,16 +4,36 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Car, Lock, Mail, User } from "lucide-react";
+import { useState } from "react";
+import { useAuth } from "@/components/auth/AuthProvider";
 
 interface AuthPlaceholderProps {
   onAuthSuccess?: () => void;
 }
 
 export const AuthPlaceholder = ({ onAuthSuccess }: AuthPlaceholderProps) => {
-  const handleAuth = (type: 'signin' | 'signup') => {
-    console.log(`${type} attempted`);
-    // Here you would integrate with Supabase auth
-    onAuthSuccess?.();
+  const { signInWithEmail, signUpWithEmail } = useAuth();
+  const [signinEmail, setSigninEmail] = useState("");
+  const [signinPassword, setSigninPassword] = useState("");
+  const [signupName, setSignupName] = useState("");
+  const [signupEmail, setSignupEmail] = useState("");
+  const [signupPassword, setSignupPassword] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSignin = async () => {
+    setIsSubmitting(true);
+    const { error } = await signInWithEmail(signinEmail, signinPassword);
+    setIsSubmitting(false);
+    if (!error) onAuthSuccess?.();
+    else console.error(error.message);
+  };
+
+  const handleSignup = async () => {
+    setIsSubmitting(true);
+    const { error } = await signUpWithEmail(signupEmail, signupPassword, { full_name: signupName });
+    setIsSubmitting(false);
+    if (!error) onAuthSuccess?.();
+    else console.error(error.message);
   };
 
   return (
@@ -56,6 +76,8 @@ export const AuthPlaceholder = ({ onAuthSuccess }: AuthPlaceholderProps) => {
                         type="email"
                         placeholder="Enter your email"
                         className="highway-input font-americana pl-10"
+                        value={signinEmail}
+                        onChange={(e) => setSigninEmail(e.target.value)}
                       />
                     </div>
                   </div>
@@ -71,14 +93,17 @@ export const AuthPlaceholder = ({ onAuthSuccess }: AuthPlaceholderProps) => {
                         type="password"
                         placeholder="Enter your password"
                         className="highway-input font-americana pl-10"
+                        value={signinPassword}
+                        onChange={(e) => setSigninPassword(e.target.value)}
                       />
                     </div>
                   </div>
                   
                   <Button 
-                    onClick={() => handleAuth('signin')}
+                    onClick={handleSignin}
                     variant="route66" 
                     className="w-full"
+                    disabled={isSubmitting}
                   >
                     Start Journey
                   </Button>
@@ -98,6 +123,8 @@ export const AuthPlaceholder = ({ onAuthSuccess }: AuthPlaceholderProps) => {
                         type="text"
                         placeholder="Your full name"
                         className="highway-input font-americana pl-10"
+                        value={signupName}
+                        onChange={(e) => setSignupName(e.target.value)}
                       />
                     </div>
                   </div>
@@ -113,6 +140,8 @@ export const AuthPlaceholder = ({ onAuthSuccess }: AuthPlaceholderProps) => {
                         type="email"
                         placeholder="Enter your email"
                         className="highway-input font-americana pl-10"
+                        value={signupEmail}
+                        onChange={(e) => setSignupEmail(e.target.value)}
                       />
                     </div>
                   </div>
@@ -128,14 +157,17 @@ export const AuthPlaceholder = ({ onAuthSuccess }: AuthPlaceholderProps) => {
                         type="password"
                         placeholder="Create a password"
                         className="highway-input font-americana pl-10"
+                        value={signupPassword}
+                        onChange={(e) => setSignupPassword(e.target.value)}
                       />
                     </div>
                   </div>
                   
                   <Button 
-                    onClick={() => handleAuth('signup')}
+                    onClick={handleSignup}
                     variant="desert" 
                     className="w-full"
+                    disabled={isSubmitting}
                   >
                     Begin Journey
                   </Button>

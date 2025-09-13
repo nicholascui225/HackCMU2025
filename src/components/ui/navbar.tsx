@@ -1,8 +1,10 @@
 import { Link } from "react-router-dom";
 import { Button } from "./button";
 import { Car, Calendar, Target, BarChart3, PlusCircle } from "lucide-react";
+import { useAuth } from "@/components/auth/AuthProvider";
 
 export const Navbar = () => {
+  const { user, signOut } = useAuth();
   return (
     <nav className="highway-card border-b border-route66-brown/20 p-4">
       <div className="container mx-auto flex items-center justify-between">
@@ -45,16 +47,29 @@ export const Navbar = () => {
         </div>
 
         <div className="flex items-center gap-3">
-          <Link to="/auth">
-            <Button variant="route66" size="sm">
-              Sign In
-            </Button>
-          </Link>
-          <Link to="/auth">
-            <Button variant="desert" size="sm">
-              Sign Up
-            </Button>
-          </Link>
+          {user ? (
+            <>
+              <span className="font-americana text-route66-brown hidden md:inline">
+                {user.email}
+              </span>
+              <Button variant="desert" size="sm" onClick={() => signOut()}>
+                Sign Out
+              </Button>
+            </>
+          ) : (
+            <>
+              <Link to="/auth">
+                <Button variant="route66" size="sm">
+                  Sign In
+                </Button>
+              </Link>
+              <Link to="/auth">
+                <Button variant="desert" size="sm">
+                  Sign Up
+                </Button>
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </nav>

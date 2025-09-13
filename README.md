@@ -1,73 +1,39 @@
-# Welcome to your Lovable project
+# Route 66 Calendar
 
-## Project info
+A retro-themed calendar that visualizes your day as a road trip. Built with React, Vite, TypeScript, Tailwind, shadcn-ui, and Supabase (auth + persistence).
 
-**URL**: https://lovable.dev/projects/0fe5fb08-0c6d-43ba-b667-bba264ac876a
-
-## How can I edit this code?
-
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/0fe5fb08-0c6d-43ba-b667-bba264ac876a) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+## Getting started
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
 npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+App runs at http://localhost:5173
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Environment
 
-**Use GitHub Codespaces**
+Create `.env` in the project root:
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+```
+VITE_SUPABASE_URL=your_supabase_project_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
 
-## What technologies are used for this project?
+See `ENV_SETUP.md` for details.
 
-This project is built with:
+## Database
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+Run `supabase/schema.sql` in Supabase SQL Editor to create tables and RLS policies for `goals` and `tasks`.
 
-## How can I deploy this project?
+## Scripts
 
-Simply open [Lovable](https://lovable.dev/projects/0fe5fb08-0c6d-43ba-b667-bba264ac876a) and click on Share -> Publish.
+- `npm run dev` — start dev server
+- `npm run build` — production build
+- `npm run preview` — preview built app
+- `npm run lint` — lint codebase
 
-## Can I connect a custom domain to my Lovable project?
+## Notes
 
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+- Do not commit `.env` or `node_modules/`.
+- Prefer `package-lock.json` (npm). If not using Bun, ignore `bun.lockb`.

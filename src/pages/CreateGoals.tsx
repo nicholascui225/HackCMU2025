@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MapPin, Clock, Target, Plus, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { createGoal } from "@/services/goals";
 
 interface Task {
   id: string;
@@ -74,7 +75,7 @@ const CreateGoals = () => {
     });
   };
 
-  const saveGoal = () => {
+  const saveGoal = async () => {
     if (!goalTitle) {
       toast({
         title: "Missing Goal Title",
@@ -84,18 +85,34 @@ const CreateGoals = () => {
       return;
     }
 
-    // Here you would save to the database
-    console.log("Saving goal:", { goalTitle, goalDescription, tasks });
-    
-    toast({
-      title: "Journey Planned!",
-      description: `Goal "${goalTitle}" created with ${tasks.length} destinations`
-    });
+    try {
+      await createGoal({
+        title: goalTitle,
+        description: goalDescription,
+        tasks: tasks.map((t) => ({
+          title: t.title,
+          type: t.type,
+          start_time: t.startTime,
+          end_time: t.endTime,
+        }))
+      });
 
-    // Reset form
-    setGoalTitle("");
-    setGoalDescription("");
-    setTasks([]);
+      toast({
+        title: "Journey Planned!",
+        description: `Goal "${goalTitle}" created with ${tasks.length} destinations`
+      });
+
+      setGoalTitle("");
+      setGoalDescription("");
+      setTasks([]);
+    } catch (err: any) {
+      console.error(err);
+      toast({
+        title: "Error",
+        description: err?.message || "Failed to save goal",
+        variant: "destructive"
+      });
+    }
   };
 
   const getTypeIcon = (type: string) => {

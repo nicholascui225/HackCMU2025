@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/ui/navbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,66 +8,42 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { BarChart3, CheckCircle, Clock, Calendar, Target, MapPin, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { listTodayTasks, toggleTask as toggleTaskSrv, updateTaskNotes as updateTaskNotesSrv, type Task } from "@/services/goals";
 
-interface DailyTask {
+type DailyTask = {
   id: string;
   title: string;
   time: string;
   type: 'event' | 'task' | 'goal';
-  goalTitle: string;
+  goalTitle?: string;
   completed: boolean;
-  notes?: string;
-}
-
-// Mock today's tasks
-const mockTodayTasks: DailyTask[] = [
-  {
-    id: "1",
-    title: "Morning standup meeting",
-    time: "09:00",
-    type: "event",
-    goalTitle: "Complete Project Alpha",
-    completed: true,
-    notes: "Discussed sprint goals and blockers"
-  },
-  {
-    id: "2",
-    title: "Code implementation",
-    time: "10:30",
-    type: "task",
-    goalTitle: "Complete Project Alpha",
-    completed: false
-  },
-  {
-    id: "3",
-    title: "Team lunch",
-    time: "12:00",
-    type: "event",
-    goalTitle: "Team Building",
-    completed: false
-  },
-  {
-    id: "4",
-    title: "Workout session",
-    time: "18:00",
-    type: "task",
-    goalTitle: "Health & Fitness Journey",
-    completed: false
-  },
-  {
-    id: "5",
-    title: "Review weekly goals",
-    time: "19:30",
-    type: "goal",
-    goalTitle: "Personal Development",
-    completed: false
-  }
-];
+  notes?: string | null;
+};
 
 const ProgressReport = () => {
   const { toast } = useToast();
-  const [tasks, setTasks] = useState<DailyTask[]>(mockTodayTasks);
+  const [tasks, setTasks] = useState<DailyTask[]>([]);
   const [taskNotes, setTaskNotes] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const data: Task[] = await listTodayTasks();
+        const mapped: DailyTask[] = data.map((t) => ({
+          id: t.id,
+          title: t.title,
+          time: (t.start_time ?? '').slice(0,5),
+          type: t.type,
+          completed: t.completed,
+          notes: t.notes ?? undefined,
+        }));
+        setTasks(mapped);
+      } catch (err: any) {
+        console.error(err);
+        toast({ title: 'Error', description: err?.message || 'Failed to load tasks', variant: 'destructive' });
+      }
+    })();
+  }, [toast]);
 
   const currentDate = new Date().toLocaleDateString('en-US', { 
     weekday: 'long', 
@@ -76,37 +52,34 @@ const ProgressReport = () => {
     day: 'numeric' 
   });
 
-  const toggleTaskCompletion = (taskId: string) => {
-    setTasks(tasks.map(task => 
-      task.id === taskId 
-        ? { ...task, completed: !task.completed }
-        : task
-    ));
-
-    const task = tasks.find(t => t.id === taskId);
-    toast({
-      title: task?.completed ? "Task Unmarked" : "Task Completed!",
-      description: `${task?.title} ${task?.completed ? 'unmarked' : 'marked as complete'}`,
-    });
+  const toggleTaskCompletion = async (taskId: string) => {
+    try {
+      setTasks(tasks.map(task => task.id === taskId ? { ...task, completed: !task.completed } : task));
+      const current = tasks.find(t => t.id === taskId);
+      await toggleTaskSrv(taskId, !(current?.completed ?? false));
+      toast({
+        title: (current?.completed ?? false) ? 'Task Unmarked' : 'Task Completed!',
+        description: `${current?.title ?? 'Task'} ${(current?.completed ?? false) ? 'unmarked' : 'marked as complete'}`,
+      });
+    } catch (err: any) {
+      console.error(err);
+      toast({ title: 'Error', description: err?.message || 'Failed to update task', variant: 'destructive' });
+    }
   };
 
-  const updateTaskNotes = (taskId: string, notes: string) => {
-    setTaskNotes({ ...taskNotes, [taskId]: notes });
-    setTasks(tasks.map(task => 
-      task.id === taskId 
-        ? { ...task, notes }
-        : task
-    ));
+  const updateTaskNotes = async (taskId: string, notes: string) => {
+    try {
+      setTaskNotes({ ...taskNotes, [taskId]: notes });
+      setTasks(tasks.map(task => task.id === taskId ? { ...task, notes } : task));
+      await updateTaskNotesSrv(taskId, notes);
+    } catch (err: any) {
+      console.error(err);
+      toast({ title: 'Error', description: err?.message || 'Failed to save notes', variant: 'destructive' });
+    }
   };
 
   const saveProgress = () => {
-    // Here you would save to the database
-    console.log("Saving progress:", tasks);
-    
-    toast({
-      title: "Progress Saved!",
-      description: "Your daily progress has been recorded successfully",
-    });
+    toast({ title: 'Progress Saved!', description: 'Your daily progress has been recorded successfully' });
   };
 
   const getTypeIcon = (type: string) => {
