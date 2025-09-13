@@ -9,9 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { MapPin, Clock, Target, Plus, Sparkles, Send, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { addTask, createGoal, listGoals, type Goal } from "@/services/goals";
-import { parseEventsWithAI, getCurrentDateString, type ParsedEvent, type AIEventResponse } from "@/services/ai-events";
+import { parseEventsWithAI, getCurrentDateString, type ParsedEvent, type AIEventResponse } from "../services/ai-events";
 import { isAIConfigured, getAIConfigError } from "@/config/ai";
-import { parseICSFile, readFileAsText, validateICSFile, type ParsedCalendarEvent } from "@/services/ics-parser";
+import { parseICSFile, readFileAsText, validateICSFile, parseRRuleFrequency, type ParsedCalendarEvent } from "@/services/ics-parser";
 
 const CreateGoals = () => {
   const { toast } = useToast();
@@ -48,6 +48,21 @@ const CreateGoals = () => {
   const [calendarEvents, setCalendarEvents] = useState<ParsedCalendarEvent[]>([]);
   const [showCalendarPreview, setShowCalendarPreview] = useState(false);
   const [uploadErrors, setUploadErrors] = useState<string[]>([]);
+  const [eventGoalSelections, setEventGoalSelections] = useState<Record<string, string>>({});
+  const [eventEdits, setEventEdits] = useState<Record<string, {
+    date: string;
+    startTime: string;
+    endTime: string;
+    type: 'event' | 'task';
+    isRepeating: boolean;
+    repeatFrequency: 'daily' | 'weekly' | 'monthly';
+    repeatEndDate: string;
+  }>>({});
+  
+  // New goal creation state for calendar uploads
+  const [showNewGoalForm, setShowNewGoalForm] = useState<Record<string, boolean>>({});
+  const [newGoalTitle, setNewGoalTitle] = useState<Record<string, string>>({});
+  const [newGoalDescription, setNewGoalDescription] = useState<Record<string, string>>({});
 
   const timeOptions = useMemo(() => {
     const times: string[] = [];
@@ -246,6 +261,24 @@ const CreateGoals = () => {
       setCalendarEvents(parseResult.events);
       setShowCalendarPreview(true);
       setUploadErrors(parseResult.errors);
+
+      // Initialize event edits with detected recurring information
+      const initialEdits: Record<string, any> = {};
+      parseResult.events.forEach(event => {
+        if (event.isRecurring && event.recurrenceRule) {
+          const frequency = parseRRuleFrequency(event.recurrenceRule);
+          initialEdits[event.id] = {
+            date: event.startDate,
+            startTime: event.startTime,
+            endTime: event.endTime,
+            type: event.type,
+            isRepeating: true,
+            repeatFrequency: frequency,
+            repeatEndDate: event.recurrenceEndDate || event.startDate
+          };
+        }
+      });
+      setEventEdits(initialEdits);
       
       toast({
         title: "Calendar Imported",
@@ -275,38 +308,169 @@ const CreateGoals = () => {
     }
   };
 
-  const handleAcceptCalendarEvent = async (event: ParsedCalendarEvent) => {
-    try {
-      // Find the goal to use (use selected goal or first available)
-      const targetGoalId = selectedGoalId || (goals.length > 0 ? goals[0].id : null);
+  const generateRecurringDates = (startDate: string, frequency: 'daily' | 'weekly' | 'monthly', endDate: string): string[] => {
+    const dates: string[] = [];
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const current = new Date(start);
+
+    while (current <= end) {
+      dates.push(current.toISOString().split('T')[0]);
       
-      if (!targetGoalId) {
+      switch (frequency) {
+        case 'daily':
+          current.setDate(current.getDate() + 1);
+          break;
+        case 'weekly':
+          current.setDate(current.getDate() + 7);
+          break;
+        case 'monthly':
+          current.setMonth(current.getMonth() + 1);
+          break;
+      }
+    }
+
+    return dates;
+  };
+
+  const handleCreateNewGoalForEvent = async (eventId: string) => {
+    const title = newGoalTitle[eventId];
+    const description = newGoalDescription[eventId];
+    
+    if (!title.trim()) {
+      toast({
+        title: "Missing Goal Title",
+        description: "Please enter a goal title",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      console.log("[CreateGoals] Creating new goal for calendar event:", title);
+      const newGoal = await createGoal({ 
+        title: title.trim(), 
+        description: description.trim() || undefined 
+      });
+      
+      // Update goals list
+      const updatedGoals = await listGoals();
+      setGoals(updatedGoals);
+      
+      // Set this new goal as selected for the event
+      setEventGoalSelections(prev => ({
+        ...prev,
+        [eventId]: newGoal.id
+      }));
+      
+      // Hide the new goal form
+      setShowNewGoalForm(prev => ({
+        ...prev,
+        [eventId]: false
+      }));
+      
+      // Clear the form
+      setNewGoalTitle(prev => ({
+        ...prev,
+        [eventId]: ""
+      }));
+      setNewGoalDescription(prev => ({
+        ...prev,
+        [eventId]: ""
+      }));
+      
+      toast({
+        title: "Goal Created",
+        description: `"${title}" has been created and selected for this event`,
+        variant: "default"
+      });
+      
+    } catch (err: any) {
+      console.error("[CreateGoals] Create goal error:", err);
+      toast({
+        title: "Error",
+        description: err?.message || "Failed to create goal",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleAcceptCalendarEvent = async (event: ParsedCalendarEvent, selectedGoalId: string) => {
+    try {
+      if (!selectedGoalId) {
         toast({
           title: "No Goal Selected",
-          description: "Please select a goal or create one first.",
+          description: "Please select a goal for this event.",
           variant: "destructive"
         });
         return;
       }
 
-      console.log("[CreateGoals] Adding calendar event:", event.title);
-      
-      await addTask({
-        goal_id: targetGoalId,
-        title: event.title,
-        type: event.type,
-        date: event.startDate,
-        start_time: event.startTime,
-        end_time: event.endTime || undefined,
-      });
+      // Get edited values or use original values
+      const edits = eventEdits[event.id];
+      const finalDate = edits?.date || event.startDate;
+      const finalStartTime = edits?.startTime || event.startTime;
+      const finalEndTime = edits?.endTime === "none" ? undefined : (edits?.endTime || event.endTime);
+      const finalType = edits?.type || event.type;
+      const isRepeating = edits?.isRepeating || false;
+      const repeatFrequency = edits?.repeatFrequency || 'weekly';
+      const repeatEndDate = edits?.repeatEndDate || finalDate;
 
-      // Remove from preview
-      setCalendarEvents(prev => prev.filter(e => e.id !== event.id));
+      console.log("[CreateGoals] Adding calendar event:", event.title, isRepeating ? `(repeating ${repeatFrequency})` : '');
       
-      toast({
-        title: "Event Added",
-        description: `"${event.title}" has been added to your journey`,
-        variant: "default"
+      if (isRepeating) {
+        // Generate recurring events
+        const recurringDates = generateRecurringDates(finalDate, repeatFrequency, repeatEndDate);
+        
+        // Create all recurring instances
+        const tasks = recurringDates.map(date => ({
+          goal_id: selectedGoalId,
+          title: event.title,
+          type: finalType,
+          date: date,
+          start_time: finalStartTime,
+          end_time: finalEndTime || undefined,
+        }));
+
+        // Add all tasks
+        for (const task of tasks) {
+          await addTask(task);
+        }
+
+        toast({
+          title: "Recurring Events Added",
+          description: `"${event.title}" has been added ${recurringDates.length} times (${repeatFrequency} until ${repeatEndDate})`,
+          variant: "default"
+        });
+      } else {
+        // Single event
+        await addTask({
+          goal_id: selectedGoalId,
+          title: event.title,
+          type: finalType,
+          date: finalDate,
+          start_time: finalStartTime,
+          end_time: finalEndTime || undefined,
+        });
+
+        toast({
+          title: "Event Added",
+          description: `"${event.title}" has been added to your journey`,
+          variant: "default"
+        });
+      }
+
+      // Remove from preview and clean up state
+      setCalendarEvents(prev => prev.filter(e => e.id !== event.id));
+      setEventGoalSelections(prev => {
+        const newSelections = { ...prev };
+        delete newSelections[event.id];
+        return newSelections;
+      });
+      setEventEdits(prev => {
+        const newEdits = { ...prev };
+        delete newEdits[event.id];
+        return newEdits;
       });
 
     } catch (err: any) {
@@ -788,26 +952,244 @@ const CreateGoals = () => {
                             }`}>
                               {event.type}
                             </span>
+                            {event.isRecurring && (
+                              <span className="px-2 py-1 rounded text-xs font-txc bg-green-100 text-green-800">
+                                🔄 Recurring
+                              </span>
+                            )}
                             <span className="text-xs text-muted-foreground">
                               {Math.round(event.confidence * 100)}% confidence
                             </span>
                           </div>
                           
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm font-txc text-muted-foreground">
+                          {/* Editable Fields */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+                            {/* Date */}
                             <div>
-                              <span className="text-route66-orange">Date:</span> {event.startDate}
+                              <Label htmlFor={`date-${event.id}`} className="font-txc text-route66-orange text-sm">
+                                Date
+                              </Label>
+                              <Input
+                                id={`date-${event.id}`}
+                                type="date"
+                                value={eventEdits[event.id]?.date || event.startDate}
+                                onChange={(e) => {
+                                  setEventEdits(prev => ({
+                                    ...prev,
+                                    [event.id]: {
+                                      ...prev[event.id],
+                                      date: e.target.value,
+                                      startTime: prev[event.id]?.startTime || event.startTime,
+                                      endTime: prev[event.id]?.endTime || event.endTime,
+                                      type: prev[event.id]?.type || event.type
+                                    }
+                                  }));
+                                }}
+                                className="retro-input font-txc mt-1"
+                              />
                             </div>
+
+                            {/* Type */}
                             <div>
-                              <span className="text-route66-orange">Time:</span> {event.startTime}
-                              {event.endTime && ` - ${event.endTime}`}
+                              <Label htmlFor={`type-${event.id}`} className="font-txc text-route66-orange text-sm">
+                                Type
+                              </Label>
+                              <Select 
+                                value={eventEdits[event.id]?.type || event.type}
+                                onValueChange={(value: 'event' | 'task') => {
+                                  setEventEdits(prev => ({
+                                    ...prev,
+                                    [event.id]: {
+                                      ...prev[event.id],
+                                      date: prev[event.id]?.date || event.startDate,
+                                      startTime: prev[event.id]?.startTime || event.startTime,
+                                      endTime: prev[event.id]?.endTime || event.endTime,
+                                      type: value
+                                    }
+                                  }));
+                                }}
+                              >
+                                <SelectTrigger id={`type-${event.id}`} className="retro-input font-txc mt-1">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="task">Task</SelectItem>
+                                  <SelectItem value="event">Event</SelectItem>
+                                </SelectContent>
+                              </Select>
                             </div>
-                            {event.location && (
-                              <div>
-                                <span className="text-route66-orange">Location:</span> {event.location}
+
+                            {/* Start Time */}
+                            <div>
+                              <Label htmlFor={`start-time-${event.id}`} className="font-txc text-route66-orange text-sm">
+                                Start Time
+                              </Label>
+                              <Select 
+                                value={eventEdits[event.id]?.startTime || event.startTime}
+                                onValueChange={(value) => {
+                                  setEventEdits(prev => ({
+                                    ...prev,
+                                    [event.id]: {
+                                      ...prev[event.id],
+                                      date: prev[event.id]?.date || event.startDate,
+                                      startTime: value,
+                                      endTime: prev[event.id]?.endTime || event.endTime,
+                                      type: prev[event.id]?.type || event.type
+                                    }
+                                  }));
+                                }}
+                              >
+                                <SelectTrigger id={`start-time-${event.id}`} className="retro-input font-txc mt-1">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {timeOptions.map((time) => (
+                                    <SelectItem key={time} value={time}>{time}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            {/* End Time */}
+                            <div>
+                              <Label htmlFor={`end-time-${event.id}`} className="font-txc text-route66-orange text-sm">
+                                End Time (Optional)
+                              </Label>
+                              <Select 
+                                value={eventEdits[event.id]?.endTime || event.endTime || "none"}
+                                onValueChange={(value) => {
+                                  setEventEdits(prev => ({
+                                    ...prev,
+                                    [event.id]: {
+                                      ...prev[event.id],
+                                      date: prev[event.id]?.date || event.startDate,
+                                      startTime: prev[event.id]?.startTime || event.startTime,
+                                      endTime: value === "none" ? undefined : value,
+                                      type: prev[event.id]?.type || event.type
+                                    }
+                                  }));
+                                }}
+                              >
+                                <SelectTrigger id={`end-time-${event.id}`} className="retro-input font-txc mt-1">
+                                  <SelectValue placeholder="No end time" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="none">No end time</SelectItem>
+                                  {timeOptions.map((time) => (
+                                    <SelectItem key={time} value={time}>{time}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+
+                          {/* Repeat Settings */}
+                          <div className="mt-4 p-3 bg-route66-orange/10 rounded-lg border border-route66-orange/20">
+                            <div className="flex items-center gap-2 mb-3">
+                              <input
+                                type="checkbox"
+                                id={`repeat-${event.id}`}
+                                checked={eventEdits[event.id]?.isRepeating || false}
+                                onChange={(e) => {
+                                  setEventEdits(prev => ({
+                                    ...prev,
+                                    [event.id]: {
+                                      ...prev[event.id],
+                                      date: prev[event.id]?.date || event.startDate,
+                                      startTime: prev[event.id]?.startTime || event.startTime,
+                                      endTime: prev[event.id]?.endTime || event.endTime,
+                                      type: prev[event.id]?.type || event.type,
+                                      isRepeating: e.target.checked,
+                                      repeatFrequency: prev[event.id]?.repeatFrequency || 'weekly',
+                                      repeatEndDate: prev[event.id]?.repeatEndDate || event.startDate
+                                    }
+                                  }));
+                                }}
+                                className="rounded"
+                              />
+                              <Label htmlFor={`repeat-${event.id}`} className="font-txc text-route66-orange text-sm font-medium">
+                                Make this a repeating event
+                              </Label>
+                            </div>
+
+                            {eventEdits[event.id]?.isRepeating && (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {/* Repeat Frequency */}
+                                <div>
+                                  <Label htmlFor={`frequency-${event.id}`} className="font-txc text-route66-orange text-sm">
+                                    Repeat every
+                                  </Label>
+                                  <Select 
+                                    value={eventEdits[event.id]?.repeatFrequency || 'weekly'}
+                                    onValueChange={(value: 'daily' | 'weekly' | 'monthly') => {
+                                      setEventEdits(prev => ({
+                                        ...prev,
+                                        [event.id]: {
+                                          ...prev[event.id],
+                                          date: prev[event.id]?.date || event.startDate,
+                                          startTime: prev[event.id]?.startTime || event.startTime,
+                                          endTime: prev[event.id]?.endTime || event.endTime,
+                                          type: prev[event.id]?.type || event.type,
+                                          isRepeating: true,
+                                          repeatFrequency: value,
+                                          repeatEndDate: prev[event.id]?.repeatEndDate || event.startDate
+                                        }
+                                      }));
+                                    }}
+                                  >
+                                    <SelectTrigger id={`frequency-${event.id}`} className="retro-input font-txc mt-1">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="daily">Day</SelectItem>
+                                      <SelectItem value="weekly">Week</SelectItem>
+                                      <SelectItem value="monthly">Month</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+
+                                {/* Repeat End Date */}
+                                <div>
+                                  <Label htmlFor={`repeat-end-${event.id}`} className="font-txc text-route66-orange text-sm">
+                                    Until
+                                  </Label>
+                                  <Input
+                                    id={`repeat-end-${event.id}`}
+                                    type="date"
+                                    value={eventEdits[event.id]?.repeatEndDate || event.startDate}
+                                    onChange={(e) => {
+                                      setEventEdits(prev => ({
+                                        ...prev,
+                                        [event.id]: {
+                                          ...prev[event.id],
+                                          date: prev[event.id]?.date || event.startDate,
+                                          startTime: prev[event.id]?.startTime || event.startTime,
+                                          endTime: prev[event.id]?.endTime || event.endTime,
+                                          type: prev[event.id]?.type || event.type,
+                                          isRepeating: true,
+                                          repeatFrequency: prev[event.id]?.repeatFrequency || 'weekly',
+                                          repeatEndDate: e.target.value
+                                        }
+                                      }));
+                                    }}
+                                    className="retro-input font-txc mt-1"
+                                  />
+                                </div>
                               </div>
                             )}
-                            <div>
-                              <span className="text-route66-orange">Source:</span> {event.reasoning}
+                          </div>
+
+                          {/* Original Info Display */}
+                          <div className="mt-3 p-2 bg-route66-sand/20 rounded text-xs font-txc text-muted-foreground">
+                            <div className="grid grid-cols-2 gap-2">
+                              {event.location && (
+                                <div>
+                                  <span className="text-route66-orange">Location:</span> {event.location}
+                                </div>
+                              )}
+                              <div>
+                                <span className="text-route66-orange">Source:</span> {event.reasoning}
+                              </div>
                             </div>
                           </div>
                           
@@ -816,14 +1198,131 @@ const CreateGoals = () => {
                               <span className="text-route66-orange">Description:</span> {event.description}
                             </div>
                           )}
+
+                          {/* Goal Selection */}
+                          <div className="mt-3">
+                            <Label htmlFor={`goal-select-${event.id}`} className="font-txc text-route66-orange text-sm">
+                              Add to Goal:
+                            </Label>
+                            <Select 
+                              value={eventGoalSelections[event.id] || ""} 
+                              onValueChange={(value) => {
+                                if (value === "create_new") {
+                                  setShowNewGoalForm(prev => ({
+                                    ...prev,
+                                    [event.id]: true
+                                  }));
+                                } else {
+                                  setEventGoalSelections(prev => ({
+                                    ...prev,
+                                    [event.id]: value
+                                  }));
+                                }
+                              }}
+                            >
+                              <SelectTrigger id={`goal-select-${event.id}`} className="retro-input font-txc mt-1">
+                                <SelectValue placeholder="Select a goal" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {goals.length === 0 ? (
+                                  <SelectItem value="no_goals" disabled>No goals available</SelectItem>
+                                ) : (
+                                  goals.map((g) => (
+                                    <SelectItem key={g.id} value={g.id}>{g.title}</SelectItem>
+                                  ))
+                                )}
+                                <SelectItem value="create_new" className="text-route66-orange font-medium">
+                                  ➕ Create New Goal
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+
+                            {/* New Goal Creation Form */}
+                            {showNewGoalForm[event.id] && (
+                              <div className="mt-3 p-3 bg-route66-sand/20 rounded-lg border border-route66-orange/30">
+                                <div className="space-y-3">
+                                  <div>
+                                    <Label htmlFor={`new-goal-title-${event.id}`} className="font-txc text-route66-orange text-sm">
+                                      Goal Title
+                                    </Label>
+                                    <Input
+                                      id={`new-goal-title-${event.id}`}
+                                      value={newGoalTitle[event.id] || ""}
+                                      onChange={(e) => {
+                                        setNewGoalTitle(prev => ({
+                                          ...prev,
+                                          [event.id]: e.target.value
+                                        }));
+                                      }}
+                                      placeholder="Enter goal title"
+                                      className="retro-input font-txc mt-1"
+                                    />
+                                  </div>
+                                  
+                                  <div>
+                                    <Label htmlFor={`new-goal-desc-${event.id}`} className="font-txc text-route66-orange text-sm">
+                                      Description (Optional)
+                                    </Label>
+                                    <Textarea
+                                      id={`new-goal-desc-${event.id}`}
+                                      value={newGoalDescription[event.id] || ""}
+                                      onChange={(e) => {
+                                        setNewGoalDescription(prev => ({
+                                          ...prev,
+                                          [event.id]: e.target.value
+                                        }));
+                                      }}
+                                      placeholder="Enter goal description"
+                                      className="retro-input font-txc mt-1"
+                                      rows={2}
+                                    />
+                                  </div>
+                                  
+                                  <div className="flex gap-2">
+                                    <Button
+                                      onClick={() => handleCreateNewGoalForEvent(event.id)}
+                                      variant="route66"
+                                      size="sm"
+                                      className="font-txc bg-gradient-to-b from-route66-red to-route66-orange hover:from-route66-red/90 hover:to-route66-orange/90 text-white border-0"
+                                      disabled={!newGoalTitle[event.id]?.trim()}
+                                    >
+                                      Create Goal
+                                    </Button>
+                                    <Button
+                                      onClick={() => {
+                                        setShowNewGoalForm(prev => ({
+                                          ...prev,
+                                          [event.id]: false
+                                        }));
+                                        setNewGoalTitle(prev => ({
+                                          ...prev,
+                                          [event.id]: ""
+                                        }));
+                                        setNewGoalDescription(prev => ({
+                                          ...prev,
+                                          [event.id]: ""
+                                        }));
+                                      }}
+                                      variant="outline"
+                                      size="sm"
+                                      className="font-txc"
+                                    >
+                                      Cancel
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </div>
                         
                         <div className="flex gap-2 ml-4">
                           <Button
-                            onClick={() => handleAcceptCalendarEvent(event)}
+                            onClick={() => handleAcceptCalendarEvent(event, eventGoalSelections[event.id])}
                             variant="route66"
                             size="sm"
                             className="font-txc bg-gradient-to-b from-route66-red to-route66-orange hover:from-route66-red/90 hover:to-route66-orange/90 text-white border-0"
+                            disabled={!eventGoalSelections[event.id]}
                           >
                             Accept
                           </Button>
@@ -858,6 +1357,11 @@ const CreateGoals = () => {
                         setCalendarEvents([]);
                         setUploadedFile(null);
                         setUploadErrors([]);
+                        setEventGoalSelections({});
+                        setEventEdits({});
+                        setShowNewGoalForm({});
+                        setNewGoalTitle({});
+                        setNewGoalDescription({});
                       }}
                       variant="outline"
                       className="font-txc"

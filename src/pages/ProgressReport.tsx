@@ -6,7 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { BarChart3, CheckCircle, Clock, Calendar, Target, MapPin, Save, Circle } from "lucide-react";
+import { BarChart3, CheckCircle, Clock, Calendar, Target, MapPin, Circle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { listTodayTasks, toggleTask as toggleTaskSrv, updateTaskNotes as updateTaskNotesSrv, type Task } from "@/services/goals";
 
@@ -78,9 +78,6 @@ const ProgressReport = () => {
     }
   };
 
-  const saveProgress = () => {
-    toast({ title: 'Progress Saved!', description: 'Your daily progress has been recorded successfully' });
-  };
 
   const getTypeIcon = (type: string) => {
     switch (type) {
@@ -242,13 +239,6 @@ const ProgressReport = () => {
             </CardContent>
           </Card>
 
-          {/* Save Progress */}
-          <div className="text-center">
-            <Button onClick={saveProgress} variant="route66" size="lg" className="font-sans bg-gradient-to-b from-route66-red to-route66-orange hover:from-route66-red/90 hover:to-route66-orange/90 text-white border-0">
-              <Save className="h-4 w-4 mr-2" />
-              Save Daily Progress
-            </Button>
-          </div>
 
           {/* Progress Visualization */}
           {totalTasks > 0 && (

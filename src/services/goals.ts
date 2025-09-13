@@ -213,4 +213,26 @@ export async function deleteTask(taskId: string): Promise<void> {
   }
 }
 
+export async function deleteGoal(goalId: string): Promise<void> {
+  // First delete all tasks associated with this goal
+  const { error: taskError } = await supabase
+    .from("tasks")
+    .delete()
+    .eq("goal_id", goalId);
+  
+  if (taskError) {
+    throw new Error(`Failed to delete goal tasks: ${taskError.message}`);
+  }
+  
+  // Then delete the goal itself
+  const { error: goalError } = await supabase
+    .from("goals")
+    .delete()
+    .eq("id", goalId);
+  
+  if (goalError) {
+    throw new Error(`Failed to delete goal: ${goalError.message}`);
+  }
+}
+
 

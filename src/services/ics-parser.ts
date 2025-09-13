@@ -12,6 +12,9 @@ export interface ParsedCalendarEvent {
   type: 'event' | 'task';
   confidence: number;
   reasoning: string;
+  isRecurring?: boolean;
+  recurrenceRule?: string;
+  recurrenceEndDate?: string;
 }
 
 export interface CalendarParseResult {
@@ -63,6 +66,33 @@ export const parseICSFile = (icsContent: string): CalendarParseResult => {
         const duration = endDate ? endDate.toJSDate().getTime() - startDate.toJSDate().getTime() : 0;
         const isEvent = duration > 0 && duration < 24 * 60 * 60 * 1000; // Less than 24 hours
         
+        // Check for recurring events
+        const rrule = vevent.getFirstPropertyValue('rrule');
+        const isRecurring = !!rrule;
+        let recurrenceEndDate: string | undefined;
+        
+        if (isRecurring && rrule) {
+          // Try to extract end date from RRULE
+          const rruleStr = rrule.toString();
+          const untilMatch = rruleStr.match(/UNTIL=([^;]+)/);
+          if (untilMatch) {
+            try {
+              const untilDate = new Date(untilMatch[1]);
+              recurrenceEndDate = untilDate.toISOString().split('T')[0];
+            } catch (e) {
+              // If we can't parse the date, use a default end date (6 months from start)
+              const defaultEnd = new Date(startDate.toJSDate());
+              defaultEnd.setMonth(defaultEnd.getMonth() + 6);
+              recurrenceEndDate = defaultEnd.toISOString().split('T')[0];
+            }
+          } else {
+            // If no UNTIL date, use a default end date (6 months from start)
+            const defaultEnd = new Date(startDate.toJSDate());
+            defaultEnd.setMonth(defaultEnd.getMonth() + 6);
+            recurrenceEndDate = defaultEnd.toISOString().split('T')[0];
+          }
+        }
+        
         const parsedEvent: ParsedCalendarEvent = {
           id: `ics-${index}-${Date.now()}`,
           title: summary,
@@ -74,7 +104,10 @@ export const parseICSFile = (icsContent: string): CalendarParseResult => {
           location: location,
           type: isEvent ? 'event' : 'task',
           confidence: 0.9, // High confidence for parsed calendar events
-          reasoning: `Parsed from calendar: ${isEvent ? 'Scheduled event' : 'Task with deadline'}`
+          reasoning: `Parsed from calendar: ${isEvent ? 'Scheduled event' : 'Task with deadline'}${isRecurring ? ' (recurring)' : ''}`,
+          isRecurring: isRecurring,
+          recurrenceRule: rrule ? rrule.toString() : undefined,
+          recurrenceEndDate: recurrenceEndDate
         };
         
         events.push(parsedEvent);
@@ -128,6 +161,24 @@ export const readFileAsText = (file: File): Promise<string> => {
     };
     reader.readAsText(file);
   });
+};
+
+/**
+ * Parse RRULE to determine frequency
+ */
+export const parseRRuleFrequency = (rrule: string): 'daily' | 'weekly' | 'monthly' => {
+  const rruleUpper = rrule.toUpperCase();
+  
+  if (rruleUpper.includes('FREQ=DAILY')) {
+    return 'daily';
+  } else if (rruleUpper.includes('FREQ=WEEKLY')) {
+    return 'weekly';
+  } else if (rruleUpper.includes('FREQ=MONTHLY')) {
+    return 'monthly';
+  }
+  
+  // Default to weekly if we can't determine
+  return 'weekly';
 };
 
 /**
