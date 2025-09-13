@@ -3,13 +3,20 @@ import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/ui/navbar";
 import { RoadVisualization } from "@/components/retro/road-visualization";
 import { Link } from "react-router-dom";
-import { PlusCircle, Target, Calendar, BarChart3 } from "lucide-react";
+import { PlusCircle, Target, Calendar, BarChart3, Settings, Save, Trash2 } from "lucide-react";
 import { listTodayTasks, toggleTask, type Task as DbTask } from "@/services/goals";
 import { useToast } from "@/hooks/use-toast";
+import { usePreferences } from "@/hooks/usePreferences";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { supabase } from "@/lib/supabase";
 
 const Dashboard = () => {
   const { toast } = useToast();
-  const [tasks, setTasks] = useState<Array<{ id: string; title: string; time: string; completed: boolean; type: 'event' | 'task' | 'goal'; }>>([]);
+  const { preferences, isLoading: preferencesLoading, isSaving, savePreferences, deletePreferences } = usePreferences();
+  const [tasks, setTasks] = useState<Array<{ id: string; title: string; time: string; completed: boolean; type: DbTask['type']; }>>([]);
+  const [preferencesText, setPreferencesText] = useState('');
+  const [showPreferences, setShowPreferences] = useState(false);
   const currentDate = new Date().toLocaleDateString('en-US', { 
     weekday: 'long', 
     year: 'numeric', 
@@ -35,6 +42,13 @@ const Dashboard = () => {
       }
     })();
   }, [toast]);
+
+  // Update preferences text when preferences are loaded
+  useEffect(() => {
+    if (preferences) {
+      setPreferencesText(preferences.preferences_text);
+    }
+  }, [preferences]);
 
   const completedTasks = tasks.filter(task => task.completed).length;
   const totalTasks = tasks.length;
@@ -75,6 +89,75 @@ const Dashboard = () => {
     }
   };
 
+  const handleSavePreferences = async () => {
+    if (!preferencesText.trim()) {
+      toast({
+        title: 'Error',
+        description: 'Please enter some preferences before saving',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    try {
+      await savePreferences(preferencesText.trim());
+      setShowPreferences(false);
+    } catch (error) {
+      // Error is already handled in the hook
+    }
+  };
+
+  const handleDeletePreferences = async () => {
+    try {
+      await deletePreferences();
+      setPreferencesText('');
+      setShowPreferences(false);
+    } catch (error) {
+      // Error is already handled in the hook
+    }
+  };
+
+  const testSupabaseConnection = async () => {
+    try {
+      console.log('=== TESTING SUPABASE CONNECTION ===');
+      
+      // Test 1: Check current session
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      console.log('Current session:', sessionData);
+      console.log('Session error:', sessionError);
+      
+      // Test 2: Try to access user_preferences table
+      const { data: prefsData, error: prefsError } = await supabase
+        .from('user_preferences')
+        .select('*')
+        .limit(1);
+      console.log('Preferences table access:', prefsData);
+      console.log('Preferences error:', prefsError);
+      
+      // Test 3: Check if we can reach Supabase
+      const { data: healthData, error: healthError } = await supabase
+        .from('goals')
+        .select('count')
+        .limit(1);
+      console.log('Health check (goals table):', healthData);
+      console.log('Health error:', healthError);
+      
+      toast({
+        title: 'Supabase Test Complete',
+        description: 'Check console for detailed results',
+        variant: 'default'
+      });
+    } catch (error) {
+      console.error('Supabase test failed:', error);
+      toast({
+        title: 'Supabase Test Failed',
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: 'destructive'
+      });
+    }
+  };
+
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -93,6 +176,21 @@ const Dashboard = () => {
             </div>
             
             <div className="flex gap-3">
+              <Button 
+                variant="outline" 
+                className="flex items-center gap-2"
+                onClick={() => setShowPreferences(!showPreferences)}
+              >
+                <Settings className="h-4 w-4" />
+                AI Preferences
+              </Button>
+              <Button 
+                variant="outline" 
+                className="flex items-center gap-2"
+                onClick={testSupabaseConnection}
+              >
+                Test Supabase
+              </Button>
               <Link to="/create">
                 <Button variant="route66" className="flex items-center gap-2">
                   <PlusCircle className="h-4 w-4" />
@@ -135,6 +233,54 @@ const Dashboard = () => {
             </div>
           </div>
         </div>
+
+        {/* AI Preferences Section */}
+        {showPreferences && (
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Settings className="h-5 w-5 text-route66-red" />
+                AI Event Creation Preferences
+              </CardTitle>
+              <CardDescription>
+                Tell the AI about your scheduling preferences to get better event suggestions. 
+                For example: "I like to do homework right after lectures" or "I prefer to exercise in the morning".
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <Textarea
+                  placeholder="Enter your scheduling preferences here... (e.g., 'I like to do homework immediately after my lectures', 'I prefer to exercise in the morning before classes', 'I need at least 1 hour between meetings')"
+                  value={preferencesText}
+                  onChange={(e) => setPreferencesText(e.target.value)}
+                  className="min-h-[120px] resize-none"
+                  disabled={isSaving || preferencesLoading}
+                />
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={handleSavePreferences}
+                    disabled={isSaving || preferencesLoading || !preferencesText.trim()}
+                    className="flex items-center gap-2"
+                  >
+                    <Save className="h-4 w-4" />
+                    {isSaving ? 'Saving...' : 'Save Preferences'}
+                  </Button>
+                  {preferences && (
+                    <Button 
+                      variant="destructive" 
+                      onClick={handleDeletePreferences}
+                      disabled={isSaving || preferencesLoading}
+                      className="flex items-center gap-2"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Delete
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Road Visualization */}
         <RoadVisualization 

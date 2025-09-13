@@ -49,12 +49,38 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       return { error: error ?? undefined };
     },
     async signUpWithEmail(email, password, metadata) {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: metadata }
-      });
-      return { error: error ?? undefined };
+      console.log('=== SIGNUP DEBUG START ===');
+      console.log('Signing up with:', { email, password: '***', metadata });
+      console.log('Supabase client URL:', supabase.supabaseUrl);
+      console.log('Supabase client key present:', !!supabase.supabaseKey);
+      
+      try {
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { data: metadata }
+        });
+        
+        console.log('=== SIGNUP RESULT ===');
+        console.log('Data:', data);
+        console.log('Error:', error);
+        console.log('User:', data?.user);
+        console.log('Session:', data?.session);
+        console.log('=====================');
+        
+        if (error) {
+          console.error('Signup error details:', {
+            message: error.message,
+            status: error.status,
+            statusText: error.statusText
+          });
+        }
+        
+        return { error: error ?? undefined };
+      } catch (err) {
+        console.error('Signup exception:', err);
+        return { error: err as Error };
+      }
     },
     async signOut() {
       const { error } = await supabase.auth.signOut();

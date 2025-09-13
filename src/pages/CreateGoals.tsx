@@ -12,9 +12,11 @@ import { addTask, createGoal, listGoals, type Goal } from "@/services/goals";
 import { parseEventsWithAI, getCurrentDateString, type ParsedEvent, type AIEventResponse } from "../services/ai-events";
 import { isAIConfigured, getAIConfigError } from "@/config/ai";
 import { parseICSFile, readFileAsText, validateICSFile, parseRRuleFrequency, type ParsedCalendarEvent } from "@/services/ics-parser";
+import { usePreferences } from "@/hooks/usePreferences";
 
 const CreateGoals = () => {
   const { toast } = useToast();
+  const { preferences } = usePreferences();
   const [goalTitle, setGoalTitle] = useState("");
   const [goalDescription, setGoalDescription] = useState("");
 
@@ -169,7 +171,8 @@ const CreateGoals = () => {
       const userContext = {
         goals,
         currentDate: getCurrentDateString(),
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        preferences: preferences?.preferences_text
       };
 
       const aiResponse: AIEventResponse = await parseEventsWithAI(

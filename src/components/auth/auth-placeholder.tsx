@@ -3,9 +3,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Car, Lock, Mail, User } from "lucide-react";
+import { Car, Lock, Mail, User, AlertCircle, Wrench } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/lib/supabase";
 
 interface AuthPlaceholderProps {
   onAuthSuccess?: () => void;
@@ -13,27 +15,94 @@ interface AuthPlaceholderProps {
 
 export const AuthPlaceholder = ({ onAuthSuccess }: AuthPlaceholderProps) => {
   const { signInWithEmail, signUpWithEmail } = useAuth();
+  const { toast } = useToast();
   const [signinEmail, setSigninEmail] = useState("");
   const [signinPassword, setSigninPassword] = useState("");
   const [signupName, setSignupName] = useState("");
   const [signupEmail, setSignupEmail] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSignin = async () => {
     setIsSubmitting(true);
+    setError(null);
     const { error } = await signInWithEmail(signinEmail, signinPassword);
     setIsSubmitting(false);
-    if (!error) onAuthSuccess?.();
-    else console.error(error.message);
+    if (!error) {
+      onAuthSuccess?.();
+      toast({
+        title: "Success!",
+        description: "Welcome back to your journey!",
+        variant: "default"
+      });
+    } else {
+      setError(error.message);
+      toast({
+        title: "Sign In Failed",
+        description: error.message,
+        variant: "destructive"
+      });
+      console.error("Sign in error:", error);
+    }
   };
 
   const handleSignup = async () => {
     setIsSubmitting(true);
+    setError(null);
+    console.log("Attempting signup with:", { email: signupEmail, name: signupName });
+    
     const { error } = await signUpWithEmail(signupEmail, signupPassword, { full_name: signupName });
     setIsSubmitting(false);
-    if (!error) onAuthSuccess?.();
-    else console.error(error.message);
+    
+    if (!error) {
+      onAuthSuccess?.();
+      toast({
+        title: "Welcome!",
+        description: "Your journey begins now!",
+        variant: "default"
+      });
+    } else {
+      setError(error.message);
+      toast({
+        title: "Sign Up Failed",
+        description: error.message,
+        variant: "destructive"
+      });
+      console.error("Sign up error:", error);
+    }
+  };
+
+  const testSupabaseConnection = async () => {
+    try {
+      console.log("=== TESTING SUPABASE CONNECTION FROM AUTH PAGE ===");
+      
+      // Test basic connection
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      console.log("Current session:", sessionData);
+      console.log("Session error:", sessionError);
+      
+      // Test database access
+      const { data: testData, error: testError } = await supabase
+        .from('goals')
+        .select('count')
+        .limit(1);
+      console.log("Database test:", testData);
+      console.log("Database error:", testError);
+      
+      toast({
+        title: "Supabase Test Complete",
+        description: "Check console for results",
+        variant: "default"
+      });
+    } catch (error) {
+      console.error("Supabase test failed:", error);
+      toast({
+        title: "Supabase Test Failed",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
@@ -53,6 +122,12 @@ export const AuthPlaceholder = ({ onAuthSuccess }: AuthPlaceholderProps) => {
 
         <Card className="vintage-card">
           <CardContent className="p-6">
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 text-red-600" />
+                <span className="text-sm text-red-700">{error}</span>
+              </div>
+            )}
             <Tabs defaultValue="signin" className="w-full">
               <TabsList className="grid w-full grid-cols-2 mb-6">
                 <TabsTrigger value="signin" className="font-americana">
@@ -175,7 +250,16 @@ export const AuthPlaceholder = ({ onAuthSuccess }: AuthPlaceholderProps) => {
               </TabsContent>
             </Tabs>
             
-            <div className="mt-6 text-center">
+            <div className="mt-6 text-center space-y-3">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={testSupabaseConnection}
+                className="w-full flex items-center gap-2"
+              >
+                <Wrench className="h-4 w-4" />
+                Test Supabase Connection
+              </Button>
               <p className="font-americana text-xs text-muted-foreground">
                 Note: Authentication will be integrated with Supabase
               </p>

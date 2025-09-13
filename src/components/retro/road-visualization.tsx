@@ -1,15 +1,16 @@
 import { Car, MapPin, Flag, Clock } from "lucide-react";
+import { type Task } from "@/services/goals";
 
-interface Task {
+interface DashboardTask {
   id: string;
   title: string;
   time: string;
   completed: boolean;
-  type: 'event' | 'task' | 'goal';
+  type: Task['type'];
 }
 
 interface RoadVisualizationProps {
-  tasks: Task[];
+  tasks: DashboardTask[];
   currentTime?: string;
   onTaskToggle?: (taskId: string) => void;
 }
