@@ -10,7 +10,7 @@ export const Navbar = () => {
       <div className="container mx-auto flex items-center justify-between">
         <Link to="/" className="flex items-center gap-3">
           <Car className="h-8 w-8 text-route66-red text-vintage" />
-          <h1 className="font-highway text-xl text-sunset">
+          <h1 className="font-sans font-bold text-xl text-sunset tracking-wide">
             Route 66 Calendar
           </h1>
         </Link>
@@ -21,35 +21,35 @@ export const Navbar = () => {
             className="flex items-center gap-2 text-route66-brown hover:text-route66-red transition-colors"
           >
             <Calendar className="h-4 w-4" />
-            <span className="font-americana">Dashboard</span>
+            <span className="font-sans font-medium tracking-wide">Dashboard</span>
           </Link>
           <Link 
             to="/create" 
             className="flex items-center gap-2 text-route66-brown hover:text-route66-red transition-colors"
           >
             <PlusCircle className="h-4 w-4" />
-            <span className="font-americana">Create</span>
+            <span className="font-sans font-medium tracking-wide">Create</span>
           </Link>
           <Link 
             to="/goals" 
             className="flex items-center gap-2 text-route66-brown hover:text-route66-red transition-colors"
           >
             <Target className="h-4 w-4" />
-            <span className="font-americana">Goals</span>
+            <span className="font-sans font-medium tracking-wide">Goals</span>
           </Link>
           <Link 
             to="/progress" 
             className="flex items-center gap-2 text-route66-brown hover:text-route66-red transition-colors"
           >
             <BarChart3 className="h-4 w-4" />
-            <span className="font-americana">Progress</span>
+            <span className="font-sans font-medium tracking-wide">Progress</span>
           </Link>
         </div>
 
         <div className="flex items-center gap-3">
           {user ? (
             <>
-              <span className="font-americana text-route66-brown hidden md:inline">
+              <span className="font-sans font-medium text-route66-brown hidden md:inline tracking-wide">
                 {user.email}
               </span>
               <Button variant="desert" size="sm" onClick={() => signOut()}>
